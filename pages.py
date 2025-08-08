@@ -5,6 +5,14 @@ import common
 from typing import Dict, List, Union
 
 
+def emph(s: str) -> str:
+    return f'_{s}_'
+
+
+def short_desc(obj_data: Dict) -> str:
+    return f'{obj_data['type']} in '
+
+
 def obs_table(names: List[str],
               date: str,
               loc: str,
@@ -35,29 +43,44 @@ def obs_table(names: List[str],
     return md
 
 
-def header(title: str,
-           names: List[str]) -> List[str]:
+def tag_line(name: str,
+             object_data: Dict) -> str:
 
-    def name_tags(name: str) -> List[str]:
+    def name_tags(n: str) -> List[str]:
         tags: List[str] = []
-        greek = common.greek_name(name)
-        if greek != name:
+        greek = common.greek_name(n)
+        if greek != n:
             tags.append(greek)
-        pretty = common.pretty_name(name)
-        if pretty != name:
+        pretty = common.pretty_name(n)
+        if pretty != n:
             tags.append(pretty)
         return tags
+
+    tags = [emph(t) for t in name_tags(name)]
+
+    alias = object_data.get('aka', [])
+    tags += [emph(a) for a in alias]
+
+    sd = common.short_desc(object_data)
+    if sd:
+        if not tags:        # At least a name should be present before the desc
+            tags += [emph(name)]
+
+        sd = emph(sd[0].upper() + sd[1:])
+        tags.append(sd)
+
+    return ' | '.join(tags)
+
+
+def header(title: str,
+           names: List[str],
+           object_data: Dict) -> List[str]:
 
     md = [f'# {title}',
           '',
           common.md_link('Back to index', '../main.md'),
           '']
-
-    for n in names:
-        tags = [f'_{t}_' for t in name_tags(n)]
-        if tags:
-            md += [' | '.join(tags) + '  ']
-
+    md += [tag_line(n, object_data.get(n, {})) + '  ' for n in names]
     md += ['']
 
     return md
@@ -103,7 +126,8 @@ def observation(names: Union[str, List[str]],
                 text: str,
                 notes: str = '',
                 loc: str = '',
-                links: Dict[str, str] = {}) -> str:
+                links: Dict[str, str] = {},
+                object_data: Dict = {}) -> str:
 
     if isinstance(names, str):
         names = [names]
@@ -119,7 +143,7 @@ def observation(names: Union[str, List[str]],
         mag=mag,
         fov=fov)
 
-    md = header(title, names)
+    md = header(title, names, object_data)
     md += body(title=title,
                img=img,
                table=o_table,

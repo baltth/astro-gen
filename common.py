@@ -5,7 +5,7 @@ import constellations
 import unicodedata
 from pathlib import Path
 from slugify import slugify
-from typing import List, Union
+from typing import List, Dict, Union
 
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
@@ -43,6 +43,12 @@ def pretty_name(name: Union[str, List[str]]) -> Union[str, List[str]]:
         name_start = ' '.join(split_name[0:-1])
         return f'{name_start} {constellations.genitive(split_name[-1])}'
     return name
+
+
+def short_desc(obj_data: Dict) -> str:
+    if not obj_data:
+        return ''
+    return f'{obj_data['type']} in {constellations.name(obj_data['constellation'])}'
 
 
 def md_link(text: str, url: str, desc: str = '') -> str:
