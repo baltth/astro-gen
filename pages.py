@@ -72,26 +72,58 @@ def tag_line(name: str,
     return ' | '.join(tags)
 
 
-def header(title: str,
-           names: List[str],
-           object_data: Dict) -> List[str]:
+def subtitle(title: str) -> str:
 
-    md = [f'# {title}',
-          '',
-          common.md_link('Back to index', '../main.md'),
-          '']
-    md += [tag_line(n, object_data.get(n, {})) + '  ' for n in names]
-    md += ['']
+    return f'## {title}'
+
+
+def header(title: str) -> List[str]:
+
+    links = common.md_link('Main page', '../main.md') + ' | ' + common.md_link('Index', '../pages/obj_index.md')
+
+    return [
+        f'# {title}',
+        '',
+        links,
+        ''
+    ]
+
+
+def footer(notes: str = '', links: Dict[str, str] = {}) -> List[str]:
+
+    md: List[str] = []
+
+    if notes:
+        md += [f'> {n}' for n in notes.splitlines()] + ['']
+
+    if links:
+        md += [subtitle('Links'), ''] + [f'- {common.md_link(k, v)}' for k, v in links.items()]
 
     return md
 
 
-def body(title: str,
-         img: str,
-         table: List[str],
-         text: str) -> str:
+def page(title: str,
+         content: List[str],
+         notes: str = '',
+         links: Dict[str, str] = {}) -> str:
 
-    md = [
+    md = header(title)
+    md += content
+    md += footer(notes=notes, links=links)
+
+    return '\n'.join(md) + '\n'
+
+
+def obs_body(title: str,
+             names: List[str],
+             img: str,
+             table: List[str],
+             text: str,
+             object_data: Dict) -> List[str]:
+
+    md = [tag_line(n, object_data.get(n, {})) + '  ' for n in names]
+    md += [
+        '',
         common.md_image(title, f'{img}'),
         ''
     ]
@@ -103,31 +135,65 @@ def body(title: str,
     return md + ['']
 
 
-def footer(notes: str = '', links: Dict[str, str] = {}) -> List[str]:
+def log_row(names: Union[str, List[str]], date: str) -> List[str]:
 
+    pretty_name = common.pretty_name_str(names)
+    date_prefix = date + ':'
+    url = common.obs_page_url(names, date)
+    return [date_prefix, pretty_name, url, '']
+
+
+def index_row(obj_name: str,
+              all_names: Union[str, List[str]],
+              date: str,
+              obj_data: Dict) -> List[str]:
+
+    pretty_name: str = common.pretty_name(obj_name)
+    url = common.obs_page_url(all_names, date)
+    desc = common.short_desc(obj_data)
+    return ['', pretty_name, url, f'- {desc}']
+
+
+def index_data(data: Union[List, Dict]) -> List[str]:
+
+    def list_line(d: List) -> str:
+        assert d
+        assert isinstance(d[0], str)
+        if len(d) > 1:
+            assert len(d) == 4
+            link_text = d[1]
+            url = d[2]
+            l = [d[0], common.md_link(link_text, url), d[3]]
+            text = ' '.join([t for t in l if t])
+        else:
+            text = d[0]
+        return f'- {text}'
+
+    if isinstance(data, list):
+        assert isinstance(data[0], list)
+        return [list_line(d) for d in data]
+
+    assert isinstance(data, dict)
     md: List[str] = []
-
-    if notes:
-        md += [f'> {n}' for n in notes.splitlines()] + ['']
-
-    if links:
-        md += ['## Links', ''] + [f'- {common.md_link(k, v)}' for k, v in links.items()]
+    for k, v in data.items():
+        assert isinstance(k, str)
+        md += [f'#### {k}', ''] + index_data(v) + ['']
 
     return md
 
 
-def observation(names: Union[str, List[str]],
-                img: str,
-                date: str,
-                nelm: int,
-                ap: int,
-                mag: int,
-                fov: float,
-                text: str,
-                notes: str = '',
-                loc: str = '',
-                links: Dict[str, str] = {},
-                object_data: Dict = {}) -> str:
+def observation_page(names: Union[str, List[str]],
+                     img: str,
+                     date: str,
+                     nelm: int,
+                     ap: int,
+                     mag: int,
+                     fov: float,
+                     text: str,
+                     notes: str = '',
+                     loc: str = '',
+                     links: Dict[str, str] = {},
+                     object_data: Dict = {}) -> str:
 
     if isinstance(names, str):
         names = [names]
@@ -143,11 +209,24 @@ def observation(names: Union[str, List[str]],
         mag=mag,
         fov=fov)
 
-    md = header(title, names, object_data)
-    md += body(title=title,
-               img=img,
-               table=o_table,
-               text=text)
-    md += footer(notes=notes, links=links)
+    md = obs_body(title=title,
+                  names=names,
+                  img=img,
+                  table=o_table,
+                  text=text,
+                  object_data=object_data)
+    return page(title=title,
+                content=md,
+                notes=notes,
+                links=links)
 
-    return '\n'.join(md) + '\n'
+
+def index_page(title: str,
+               data: Union[List, Dict],
+               notes: str = '',
+               links: Dict[str, str] = {}) -> str:
+
+    return page(title=title,
+                content=index_data(data),
+                notes=notes,
+                links=links)

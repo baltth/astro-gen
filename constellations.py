@@ -92,6 +92,10 @@ CONSTELLATIONS = {
 }
 
 
+def is_constellation(name: str) -> bool:
+    return name in CONSTELLATIONS.keys()
+
+
 def name(id: str) -> str:
     return CONSTELLATIONS[id]['name']
 

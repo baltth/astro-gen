@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import common
+import index
 import pages
 
 import argparse
-from pathlib import Path
 from typing import Dict, List, Tuple, Union
 import yaml
 
@@ -25,53 +25,85 @@ def object_data(object_db: Dict, names: Union[str, List[str]]) -> Dict:
     if isinstance(names, str):
         return object_data(object_db, [names])
 
-    return {n: object_db['objects'].get(n, {}) for n in names}
+    return {n: object_db.get(n, {}) for n in names}
 
 
 def get_links_notes(sketch_db: List, obs: Dict) -> Tuple[Dict, str]:
 
     sketch = sketch_of_obs(sketch_db, obs)
     links = {
-        'Full sketch': f'../img/{sketch['full']}'
+        'Full sketch': common.image_url(sketch['full'])
     }
 
     notes = sketch.get('notes', '')
 
     scan = sketch.get('scan', '')
     if scan:
-        links['Original sketch'] = f'../scan/{scan}'
+        links['Original sketch'] = common.scan_url(scan)
 
     return (links, notes)
 
 
+def write_file(cat: str, name: str, content: str):
+
+    out_path = common.PROJECT_ROOT / cat / name
+    out_path.write_text(content, encoding='utf8')
+
+
+def obs_page_name(obs: Dict) -> str:
+    return common.obs_page_name(obs['name'], obs['date'])
+
+
 def generate_obs(obs: Dict, sketch_db: List, object_db: Dict):
 
-    img = f'../img/{obs['img']}'
+    img = common.image_url(obs['img'])
 
     names = obs['name']
     links, notes = get_links_notes(sketch_db=sketch_db, obs=obs)
 
-    content = pages.observation(names=names,
-                                img=img,
-                                date=obs['date'],
-                                nelm=obs['nelm'],
-                                ap=obs['ap'],
-                                mag=obs['mag'],
-                                fov=obs['fov'],
-                                loc=obs.get('loc', DEFAULT_LOCATION),
-                                text=obs.get('text', ''),
-                                notes=notes,
-                                links=links,
-                                object_data=object_data(object_db, names))
+    content = pages.observation_page(names=names,
+                                     img=img,
+                                     date=obs['date'],
+                                     nelm=obs['nelm'],
+                                     ap=obs['ap'],
+                                     mag=obs['mag'],
+                                     fov=obs['fov'],
+                                     loc=obs.get('loc', DEFAULT_LOCATION),
+                                     text=obs.get('text', ''),
+                                     notes=notes,
+                                     links=links,
+                                     object_data=object_data(object_db, names))
 
-    out_path = common.PROJECT_ROOT / 'obs' / Path(common.obs_page_name(obs['name'], obs['date']))
-    out_path.write_text(content, encoding='utf8')
+    write_file('obs', obs_page_name(obs), content)
 
 
-def regen(obs_db: Dict, sketch_db: Dict, object_db: Dict):
+def obs_log_data(obs_db: List) -> List:
 
-    for obs in obs_db['observations']:
+    data = [pages.log_row(o['name'], o['date']) for o in obs_db]
+    return sorted(data, key=lambda x: x[0], reverse=True)
+
+
+def generate_obs_log(obs_db: List):
+
+    content = pages.index_page(title='All observations',
+                               data=obs_log_data(obs_db))
+    write_file('pages', 'log.md', content)
+
+
+def generate_index(obs_db: List, object_db: Dict):
+
+    content = pages.page(title='Index',
+                         content=index.index_content(obs_db=obs_db, object_db=object_db))
+    write_file('pages', 'obj_index.md', content)
+
+
+def regen(obs_db: List, sketch_db: Dict, object_db: Dict):
+
+    for obs in obs_db:
         generate_obs(obs=obs, sketch_db=sketch_db, object_db=object_db)
+
+    generate_obs_log(obs_db)
+    generate_index(obs_db=obs_db, object_db=object_db)
 
 
 def load(db: str) -> Union[Dict, List]:
@@ -104,7 +136,9 @@ def main():
     if args.last > 0:
         obs_db['observations'] = obs_db['observations'][-args.last:]
 
-    regen(obs_db=obs_db, sketch_db=sketch_db, object_db=obj_db)
+    regen(obs_db=obs_db['observations'],
+          sketch_db=sketch_db,
+          object_db=obj_db['objects'])
 
 
 if __name__ == "__main__":
