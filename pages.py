@@ -69,7 +69,7 @@ def tag_line(name: str,
         sd = emph(sd[0].upper() + sd[1:])
         tags.append(sd)
 
-    return ' | '.join(tags)
+    return ' - '.join(tags)
 
 
 def subtitle(title: str) -> str:
@@ -79,7 +79,7 @@ def subtitle(title: str) -> str:
 
 def header(title: str) -> List[str]:
 
-    links = common.md_link('Main page', '../index.md') + ' | ' + common.md_link('Index', '../pages/obj_index.md')
+    links = common.md_link('Main page', '../index.md') + ' - ' + common.md_link('Index', '../pages/obj_index.md')
 
     return [
         f'# {title}',
