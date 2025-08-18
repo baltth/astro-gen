@@ -79,7 +79,7 @@ def subtitle(title: str) -> str:
 
 def header(title: str) -> List[str]:
 
-    links = common.md_link('Main page', '../main.md') + ' | ' + common.md_link('Index', '../pages/obj_index.md')
+    links = common.md_link('Main page', '../pages/index.md') + ' | ' + common.md_link('Index', '../pages/obj_index.md')
 
     return [
         f'# {title}',
@@ -102,6 +102,11 @@ def footer(notes: str = '', links: Dict[str, str] = {}) -> List[str]:
     return md
 
 
+def join(content: List[str]) -> str:
+
+    return '\n'.join(content) + '\n'
+
+
 def page(title: str,
          content: List[str],
          notes: str = '',
@@ -111,7 +116,7 @@ def page(title: str,
     md += content
     md += footer(notes=notes, links=links)
 
-    return '\n'.join(md) + '\n'
+    return join(md)
 
 
 def obs_body(title: str,

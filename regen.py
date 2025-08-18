@@ -2,6 +2,7 @@
 
 import common
 import index
+import main_page
 import pages
 
 import argparse
@@ -97,6 +98,27 @@ def generate_index(obs_db: List, object_db: Dict):
     write_file('pages', 'obj_index.md', content)
 
 
+def generate_main(obs_db: List):
+
+    latest_obs = obs_log_data(obs_db)[:10]
+
+    content = main_page.BEGIN + [
+        '',
+        pages.subtitle('Latest'),
+        ''
+    ]
+    content += pages.index_data(latest_obs)
+    content += [
+        '---',
+        '',
+        f'### {common.md_link('All observations', 'log.md')}',
+        '',
+        f'### {common.md_link('Index', 'obj_index.md')}',
+    ] + main_page.END
+
+    write_file('pages', 'index.md', pages.join(content))
+
+
 def regen(obs_db: List, sketch_db: Dict, object_db: Dict):
 
     for obs in obs_db:
@@ -104,6 +126,7 @@ def regen(obs_db: List, sketch_db: Dict, object_db: Dict):
 
     generate_obs_log(obs_db)
     generate_index(obs_db=obs_db, object_db=object_db)
+    generate_main(obs_db)
 
 
 def load(db: str) -> Union[Dict, List]:
