@@ -109,6 +109,7 @@ def generate_main(obs_db: List):
     ]
     content += pages.index_data(latest_obs)
     content += [
+        '',
         '---',
         '',
         f'### {common.md_link('All observations', 'pages/log.md')}',
