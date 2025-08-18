@@ -148,7 +148,7 @@ def main():
     args = parser.parse_args()
 
     sketch_db = load(args.sketch_db)
-    assert isinstance(sketch_db, list)
+    assert isinstance(sketch_db, dict)
 
     obs_db = load(args.observation_db)
     assert isinstance(obs_db, dict)
@@ -160,7 +160,7 @@ def main():
         obs_db['observations'] = obs_db['observations'][-args.last:]
 
     regen(obs_db=obs_db['observations'],
-          sketch_db=sketch_db,
+          sketch_db=sketch_db['sketches'],
           object_db=obj_db['objects'])
 
 
