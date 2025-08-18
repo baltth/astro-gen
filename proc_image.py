@@ -48,14 +48,15 @@ def image_year(img: Image) -> int:
 
 def remove_frame(src: Image,
                  o_x: int,
-                 o_y: int) -> Image:
+                 o_y: int,
+                 scale: float) -> Image:
 
     W = 2035 / 2144
     H = 2795 / 3028
 
     orig_width, orig_height = src.size
-    w = int(orig_width * W)
-    h = int(orig_height * H)
+    w = int(orig_width * W * scale)
+    h = int(orig_height * H * scale)
 
     print(f"Crop: {orig_width}x{orig_height} -> {w}x{h}")
 
@@ -108,16 +109,16 @@ def add_copyright_meta(img: Image, desc: str = '') -> Image.Exif:
     meta = img.getexif()
     meta[ARTIST_TAG] = AUTHOR
     meta[COPYRIGHT_TAG] = copyright_text(image_year(img))
-    meta[SOFTWARE_TAG] = '...'
+    meta[SOFTWARE_TAG] = 'github.com/baltth/astro.git'
     if desc:
         meta[DESCRIPTION_TAG] = desc
 
     return meta
 
 
-def process(src: Image, x_offset: int, y_offset: int) -> Tuple[Image, Image, Image]:
+def process(src: Image, x_offset: int, y_offset: int, scale: float) -> Tuple[Image, Image, Image]:
 
-    cropped = remove_frame(src, x_offset, y_offset)
+    cropped = remove_frame(src, x_offset, y_offset, scale)
     img1, img2 = split_image(cropped)
 
     WIDTH = 800
@@ -149,7 +150,7 @@ def split_cmd(args):
     print(f'Source image: {args.source_image}')
     print_meta(src)
 
-    cropped, img1, img2 = process(src, int(args.x_offset), int(args.y_offset))
+    cropped, img1, img2 = process(src, args.x_offset, args.y_offset, args.scale)
 
     if args.show:
         cropped.show()
@@ -200,6 +201,7 @@ def main():
     split.add_argument('-d', '--dest', default='')
     split.add_argument('-x', '--x-offset', type=int, default=0)
     split.add_argument('-y', '--y-offset', type=int, default=0)
+    split.add_argument('-s', '--scale', type=float, default=1.0)
     split.add_argument('-o1', '--first-object', default='')
     split.add_argument('-o2', '--second-object', default='')
     split.add_argument('-w', '--show', action='store_true')
