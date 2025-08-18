@@ -93,8 +93,12 @@ def obs_page_name(obj: Union[str, List[str]], date: str) -> str:
     return f'{file_basename(obj, date)}.md'
 
 
-def obs_page_url(obj: Union[str, List[str]], date: str) -> str:
-    return f'../obs/{obs_page_name(obj, date)}'
+def obs_page_url(obj: Union[str, List[str]], date: str, from_main: bool = False) -> str:
+
+    url = f'obs/{obs_page_name(obj, date)}'
+    if not from_main:
+        return '../' + url
+    return url
 
 
 def image_url(file: str) -> str:

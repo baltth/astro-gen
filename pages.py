@@ -79,7 +79,7 @@ def subtitle(title: str) -> str:
 
 def header(title: str) -> List[str]:
 
-    links = common.md_link('Main page', '../pages/index.md') + ' | ' + common.md_link('Index', '../pages/obj_index.md')
+    links = common.md_link('Main page', '../index.md') + ' | ' + common.md_link('Index', '../pages/obj_index.md')
 
     return [
         f'# {title}',
@@ -140,11 +140,11 @@ def obs_body(title: str,
     return md + ['']
 
 
-def log_row(names: Union[str, List[str]], date: str) -> List[str]:
+def log_row(names: Union[str, List[str]], date: str, from_main: bool = False) -> List[str]:
 
     pretty_name = common.pretty_name_str(names)
     date_prefix = date + ':'
-    url = common.obs_page_url(names, date)
+    url = common.obs_page_url(names, date, from_main=from_main)
     return [date_prefix, pretty_name, url, '']
 
 

@@ -8,7 +8,7 @@ BEGIN = """# Astro sketches
 > Balazs Toth
 > baltth@gmail.com
 
-![M31, M32](../img/m31-m32-20250722.jpg)
+![M31, M32](img/m31-m32-20250722.jpg)
 
 ---
 

@@ -78,16 +78,16 @@ def generate_obs(obs: Dict, sketch_db: List, object_db: Dict):
     write_file('obs', obs_page_name(obs), content)
 
 
-def obs_log_data(obs_db: List) -> List:
+def obs_log_data(obs_db: List, from_main: bool) -> List:
 
-    data = [pages.log_row(o['name'], o['date']) for o in obs_db]
+    data = [pages.log_row(o['name'], o['date'], from_main) for o in obs_db]
     return sorted(data, key=lambda x: x[0], reverse=True)
 
 
 def generate_obs_log(obs_db: List):
 
     content = pages.index_page(title='All observations',
-                               data=obs_log_data(obs_db))
+                               data=obs_log_data(obs_db, from_main=False))
     write_file('pages', 'log.md', content)
 
 
@@ -100,7 +100,7 @@ def generate_index(obs_db: List, object_db: Dict):
 
 def generate_main(obs_db: List):
 
-    latest_obs = obs_log_data(obs_db)[:10]
+    latest_obs = obs_log_data(obs_db, from_main=True)[:10]
 
     content = main_page.BEGIN + [
         '',
@@ -111,12 +111,12 @@ def generate_main(obs_db: List):
     content += [
         '---',
         '',
-        f'### {common.md_link('All observations', 'log.md')}',
+        f'### {common.md_link('All observations', 'pages/log.md')}',
         '',
-        f'### {common.md_link('Index', 'obj_index.md')}',
+        f'### {common.md_link('Index', 'pages/obj_index.md')}',
     ] + main_page.END
 
-    write_file('pages', 'index.md', pages.join(content))
+    write_file('', 'index.md', pages.join(content))
 
 
 def regen(obs_db: List, sketch_db: Dict, object_db: Dict):
