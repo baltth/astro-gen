@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-BEGIN = """# Astro sketches
-
+# Skipping title, provided by midnight theme
+BEGIN = """
 > This site contains some astronomy sketches, created just for fun.
 > More info coming soon.
 > 
