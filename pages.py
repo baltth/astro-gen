@@ -48,12 +48,16 @@ def tag_line(name: str,
 
     def name_tags(n: str) -> List[str]:
         tags: List[str] = []
-        greek = common.greek_name(n)
-        if greek != n:
-            tags.append(greek)
+
+        # as pretty name is present as title,
+        # we add the original name here on demand
         pretty = common.pretty_name(n)
         if pretty != n:
-            tags.append(pretty)
+            tags.append(n)
+
+        trad = common.traditional_name(n)
+        if trad != n:
+            tags.append(trad)
         return tags
 
     tags = [emph(t) for t in name_tags(name)]
@@ -203,7 +207,7 @@ def observation_page(names: Union[str, List[str]],
     if isinstance(names, str):
         names = [names]
 
-    title = ', '.join(names)
+    title = common.pretty_name_str(names)
 
     o_table = obs_table(
         names=names,

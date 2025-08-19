@@ -2,10 +2,11 @@
 
 import constellations
 
-import unicodedata
 from pathlib import Path
+import re
 from slugify import slugify
 from typing import List, Dict, Union
+import unicodedata
 
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
@@ -42,6 +43,37 @@ def pretty_name(name: Union[str, List[str]]) -> Union[str, List[str]]:
     if constellations.is_constellation(split_name[-1]):
         name_start = ' '.join(split_name[0:-1])
         return f'{name_start} {constellations.genitive(split_name[-1])}'
+
+    messier_match = re.match(r'^M(\d{1,3})$', name)
+    if messier_match:
+        return f'Messier {messier_match.group(1)}'
+
+    return name
+
+
+def traditional_name(name: Union[str, List[str]]) -> Union[str, List[str]]:
+
+    if isinstance(name, list):
+        return [traditional_name(n) for n in name]
+
+    maybe_greek = greek_name(name)
+    if maybe_greek != name:
+        return maybe_greek
+
+    # By designation table in https://en.wikipedia.org/wiki/Double_star
+    struve_match = re.match(r'^(ST[A-Z]{1,2}) ?(\d+( [A-B,]+)?)$', name.upper())
+    if struve_match:
+        if struve_match.group(1) == 'STF':
+            return f'Σ {struve_match.group(2)}'
+        if struve_match.group(1) == 'STFA':
+            return f'Σ I {struve_match.group(2)}'
+        if struve_match.group(1) == 'STFB':
+            return f'Σ II {struve_match.group(2)}'
+        if struve_match.group(1) == 'STT':
+            return f'OΣ {struve_match.group(2)}'
+        if struve_match.group(1) == 'STTA':
+            return f'OΣΣ {struve_match.group(2)}'
+
     return name
 
 
