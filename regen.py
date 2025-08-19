@@ -6,6 +6,7 @@ import main_page
 import pages
 
 import argparse
+from operator import itemgetter
 from typing import Dict, List, Tuple, Union
 import yaml
 
@@ -81,7 +82,7 @@ def generate_obs(obs: Dict, sketch_db: List, object_db: Dict):
 def obs_log_data(obs_db: List, from_main: bool) -> List:
 
     data = [pages.log_row(o['name'], o['date'], from_main) for o in obs_db]
-    return sorted(data, key=lambda x: x[0], reverse=True)
+    return sorted(data, key=itemgetter(0), reverse=True)
 
 
 def generate_obs_log(obs_db: List):

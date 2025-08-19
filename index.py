@@ -4,6 +4,8 @@ import constellations
 import pages
 
 from collections import OrderedDict
+from natsort import natsorted
+from operator import itemgetter
 from typing import Callable, Dict, List
 
 
@@ -11,7 +13,7 @@ def raw_data(obs_db: List, object_db: Dict) -> List:
 
     data = {}
 
-    sorted_obs = sorted(obs_db, key=lambda x: x['date'])
+    sorted_obs = natsorted(obs_db, key=itemgetter('date'))
     for obs in sorted_obs:
         names = obs['name'] if isinstance(obs['name'], list) else [obs['name']]
         for n in names:
@@ -22,7 +24,7 @@ def raw_data(obs_db: List, object_db: Dict) -> List:
                 'row': pages.index_row(n, names, obs['date'], obj)
             }
 
-    return sorted(data.values(), key=lambda x: x['name'])
+    return natsorted(data.values(), key=itemgetter('name'))
 
 
 def collect(data: List[Dict], key: Callable) -> OrderedDict[str, List[Dict]]:
@@ -36,9 +38,9 @@ def collect(data: List[Dict], key: Callable) -> OrderedDict[str, List[Dict]]:
             res[k] = [d['row']]
 
     for v in res.values():
-        v = sorted(v)
+        v = natsorted(v)
 
-    res = OrderedDict(sorted(res.items()))
+    res = OrderedDict(natsorted(res.items()))
     if 'Other' in res.keys():
         res.move_to_end('Other')
     return res
