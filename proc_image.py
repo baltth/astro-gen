@@ -4,7 +4,8 @@ import argparse
 from tempfile import mkstemp
 from copy import deepcopy
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, Dict
+import sys
 
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 from slugify import slugify
@@ -135,12 +136,46 @@ def save_image(img: Image, name: str, desc: str = ''):
     img.save(name, exif=meta.tobytes())
 
 
-def save_object(img: Image, dest_dir: str, object_name: str):
+def save_object(img: Image, dest_dir: str, object_name: str) -> str:
 
     date = image_date(img)
     name = slugify(f'{object_name}-{date.year:04}{date.month:02}{date.day:02}')
     path_prefix = f'{dest_dir}/' if dest_dir else ''
     save_image(img, name=f'{path_prefix}{name}.jpg', desc=f'Sketch of {object_name}')
+    return f'{name}.jpg'
+
+
+def print_db_aid(data: Dict):
+
+    if 'cropped_img' not in data.keys():
+        return
+
+    cmd = ' '.join(sys.argv)
+
+    out = [
+        f'  - full: {data['cropped_img']}',
+        '    scan: \'\''
+    ]
+    if 'first_img' in data.keys():
+        out += [
+            '    sub:',
+            f'      - {data['first_img']}'
+        ]
+    if 'second_img' in data.keys():
+        out += [
+            f'      - {data['second_img']}',
+        ]
+    out += [
+        '    _cmd:',
+        '      - ./script/proc_image.py copyright TO_ADD',
+        f'      - {cmd}'
+    ]
+
+    print('---')
+    print('Add to sketch db:')
+    print('---')
+    print('\n'.join(out))
+    print()
 
 
 def split_cmd(args):
@@ -157,16 +192,27 @@ def split_cmd(args):
         img1.show()
         img2.show()
 
+    db_data = {}
+
     if args.first_object:
-        save_object(img=img1, dest_dir=args.dest, object_name=args.first_object)
+        n = save_object(img=img1, dest_dir=args.dest, object_name=args.first_object)
+        db_data['first_name'] = args.first_object
+        db_data['first_img'] = n
+
+        if args.second_object == args.first_object:
+            args.second_object += ' 2nd'
 
     if args.second_object:
-        save_object(img=img2, dest_dir=args.dest, object_name=args.second_object)
+        n = save_object(img=img2, dest_dir=args.dest, object_name=args.second_object)
+        db_data['second_name'] = args.first_object
+        db_data['second_img'] = n
 
-    if args.first_object and args.second_object:
-        save_object(img=cropped,
+    n = save_object(img=cropped,
                     dest_dir=args.dest,
                     object_name=f'{args.first_object} {args.second_object}')
+    db_data['cropped_img'] = n
+
+    print_db_aid(db_data)
 
 
 def copyright_cmd(args):
