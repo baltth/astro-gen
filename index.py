@@ -59,6 +59,8 @@ def index_content(obs_db: Dict, object_db: Dict) -> List[str]:
         # todo
         if 'star' in obj['type']:
             return 'Stars'
+        if 'planet' in obj['type'].split():
+            return 'Other'
         return 'Deep space'
 
     def by_constellation(obj: Dict) -> str:
