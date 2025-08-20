@@ -2,6 +2,7 @@
 
 import constellations
 
+from datetime import datetime, timedelta
 from pathlib import Path
 import re
 from slugify import slugify
@@ -143,3 +144,19 @@ def image_url(file: str) -> str:
 
 def scan_url(file: str) -> str:
     return f'../scan/{file}'
+
+
+def obs_day(date: str) -> str:
+
+    if ':' not in date:
+        # No time, just date, return the original
+        return date
+
+    d = datetime.fromisoformat(date)
+    if d.hour < 12:
+        # Observation after midnight, return the previous day
+        prev = d.date() - timedelta(days=1)
+        return prev.isoformat()
+
+    # Observation before midnight, return the same day
+    return d.date().isoformat()

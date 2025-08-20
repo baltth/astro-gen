@@ -53,7 +53,7 @@ def write_file(cat: str, name: str, content: str):
 
 
 def obs_page_name(obs: Dict) -> str:
-    return common.obs_page_name(obs['name'], obs['date'])
+    return common.obs_page_name(obs['name'], common.obs_day(obs['date']))
 
 
 def generate_obs(obs: Dict, sketch_db: List, object_db: Dict):
@@ -81,7 +81,11 @@ def generate_obs(obs: Dict, sketch_db: List, object_db: Dict):
 
 def obs_log_data(obs_db: List, from_main: bool) -> List:
 
-    data = [pages.log_row(o['name'], o['date'], from_main) for o in obs_db]
+    def row(obs: Dict) -> List[str]:
+        obs_day = common.obs_day(obs['date'])
+        return pages.log_row(obs['name'], obs_day, from_main)
+
+    data = [row(o) for o in obs_db]
     return sorted(data, key=itemgetter(0), reverse=True)
 
 

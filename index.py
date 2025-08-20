@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import common
 import constellations
 import pages
 
@@ -21,7 +22,7 @@ def raw_data(obs_db: List, object_db: Dict) -> List:
             data[n] = {
                 'name': n,
                 'obj': obj,
-                'row': pages.index_row(n, names, obs['date'], obj)
+                'row': pages.index_row(n, names, common.obs_day(obs['date']), obj)
             }
 
     return natsorted(data.values(), key=itemgetter('name'))
