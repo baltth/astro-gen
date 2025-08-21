@@ -3,14 +3,10 @@
 import constellations
 
 from datetime import datetime, timedelta
-from pathlib import Path
 import re
 from slugify import slugify
 from typing import List, Dict, Union
 import unicodedata
-
-
-PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 
 def to_greek(val: str) -> str:
@@ -128,22 +124,6 @@ def sketch_name(obj: Union[str, List[str]], date: str) -> str:
 
 def obs_page_name(obj: Union[str, List[str]], date: str) -> str:
     return f'{file_basename(obj, date)}.md'
-
-
-def obs_page_url(obj: Union[str, List[str]], date: str, from_main: bool = False) -> str:
-
-    url = f'obs/{obs_page_name(obj, date)}'
-    if not from_main:
-        return '../' + url
-    return url
-
-
-def image_url(file: str) -> str:
-    return f'../img/{file}'
-
-
-def scan_url(file: str) -> str:
-    return f'../scan/{file}'
 
 
 def obs_day(date: str) -> str:
