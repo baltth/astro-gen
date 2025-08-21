@@ -15,12 +15,13 @@ import yaml
 
 DEFAULT_LOCATION = 'Dunaharaszti, HU'
 
-project_root: Path = Path()
+project_root: str = ''
 
 
 def write_file(cat: str, name: str, content: str):
 
-    out_path = project_root / cat / name
+    doc_root = Path(project.site_root(project_root))
+    out_path = doc_root / cat / name
     out_path.write_text(content, encoding='utf8')
 
 
@@ -160,9 +161,6 @@ def main():
 
     print(f'Project path: {args.project_root}')
 
-    global project_root
-    project_root = Path(args.project_root)
-
     sketch_db = load(project.sketch_db(args.project_root))
     assert isinstance(sketch_db, dict)
 
@@ -171,6 +169,9 @@ def main():
 
     obj_db = load(project.object_db(args.project_root))
     assert isinstance(obj_db, dict)
+
+    global project_root
+    project_root = args.project_root
 
     regen(obs_db=obs_db['observations'],
           sketch_db=sketch_db['sketches'],

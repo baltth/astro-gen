@@ -2,13 +2,15 @@
 
 import common
 
-from os import environ
 from pathlib import Path
 from typing import List, Union
 
 
-def project_root() -> str:
-    return environ.get('ASTRO_GEN_PRJ', '')
+# Project layout, paths
+
+def site_root(project_root: str) -> str:
+    p = Path(project_root) / 'docs'
+    return str(p.resolve())
 
 
 def sketch_db(root: str) -> str:
@@ -25,6 +27,8 @@ def object_db(root: str) -> str:
     p = Path(root) / 'db' / 'objects.yml'
     return str(p.resolve())
 
+
+# Url for generated links
 
 def image_url(file: str) -> str:
     return f'../img/{file}'
