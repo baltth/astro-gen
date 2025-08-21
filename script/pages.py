@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import common
+import project
 
 from typing import Dict, List, Union
 
@@ -148,7 +149,7 @@ def log_row(names: Union[str, List[str]], date: str, from_main: bool = False) ->
 
     pretty_name = common.pretty_name_str(names)
     date_prefix = date + ':'
-    url = common.obs_page_url(names, date, from_main=from_main)
+    url = project.obs_page_url(names, date, from_main=from_main)
     return [date_prefix, pretty_name, url, '']
 
 
@@ -158,7 +159,7 @@ def index_row(obj_name: str,
               obj_data: Dict) -> List[str]:
 
     pretty_name: str = common.pretty_name(obj_name)
-    url = common.obs_page_url(all_names, date)
+    url = project.obs_page_url(all_names, date)
     desc = common.short_desc(obj_data)
     return ['', pretty_name, url, f'- {desc}']
 
