@@ -2,7 +2,6 @@
 
 import common
 import index
-import main_page
 import pages
 import project
 
@@ -108,24 +107,46 @@ def generate_index(obs_db: List, object_db: Dict):
     write_file('pages', 'obj_index.md', content)
 
 
+def load_md(file: str) -> List[str]:
+
+    print(f'Loading {file} ...')
+
+    try:
+        text = Path(file).read_text()
+        return text.splitlines()
+    except Exception:
+        print(f'Unable to read {file}, skipping content')
+        return []
+
+
 def generate_main(obs_db: List):
 
     latest_obs = obs_log_data(obs_db, from_main=True)[:10]
 
-    content = main_page.BEGIN + [
-        '',
-        pages.subtitle('Latest'),
-        ''
-    ]
-    content += pages.index_data(latest_obs)
-    content += [
+    main_pre = load_md(project.main_pre_file(project_root))
+    main_post = load_md(project.main_post_file(project_root))
+
+    SEPARATOR = [
         '',
         '---',
+        ''
+    ]
+
+    content = main_pre + SEPARATOR
+
+    content += [
+        pages.subtitle('Latest'),
+        ''
+    ] + pages.index_data(latest_obs) + SEPARATOR
+
+    content += [
+        f'## {common.md_link('All observations', 'pages/log.md')}',
         '',
-        f'### {common.md_link('All observations', 'pages/log.md')}',
-        '',
-        f'### {common.md_link('Index', 'pages/obj_index.md')}',
-    ] + main_page.END
+        f'## {common.md_link('Index', 'pages/obj_index.md')}',
+        ''
+    ] + SEPARATOR
+
+    content += main_post
 
     write_file('', 'index.md', pages.join(content))
 

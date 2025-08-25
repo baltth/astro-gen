@@ -28,6 +28,16 @@ def object_db(root: str) -> str:
     return str(p.resolve())
 
 
+def main_pre_file(root: str) -> str:
+    p = Path(root) / 'static' / 'main_pre.md'
+    return str(p.resolve())
+
+
+def main_post_file(root: str) -> str:
+    p = Path(root) / 'static' / 'main_post.md'
+    return str(p.resolve())
+
+
 # Url for generated links
 
 def image_url(file: str) -> str:
