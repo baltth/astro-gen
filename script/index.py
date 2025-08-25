@@ -72,4 +72,4 @@ def index_content(obs_db: Dict, object_db: Dict) -> List[str]:
     index_by_cat = pages.index_data(collect(raw, key=by_type))
     index_by_const = pages.index_data(collect(raw, key=by_constellation))
 
-    return subpage('Categories', index_by_cat) + subpage('Constellations', index_by_const)
+    return subpage('Categories', index_by_cat) + subpage('By constellation', index_by_const)
