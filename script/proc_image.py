@@ -161,6 +161,7 @@ def split_cmd(args) -> Dict:
         img2.show()
 
     db_data = {}
+    db_data['img_date'] = image_date(src)
 
     if args.first_object:
         n = save_object(img=img1, dest_dir=args.dest, object_name=args.first_object)

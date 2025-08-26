@@ -6,6 +6,7 @@ import project
 
 import argparse
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from shlex import join as shjoin
 import sys
@@ -13,6 +14,8 @@ from typing import Dict
 
 
 def add_images(args: argparse.Namespace) -> Dict:
+
+    print('Processing images ...')
 
     split_args = deepcopy(args)
     setattr(split_args, 'source_image', args.img)
@@ -32,7 +35,9 @@ def add_images(args: argparse.Namespace) -> Dict:
     return db_data
 
 
-def add_to_sketches(root: str, data: Dict):
+def add_sketch(root: str, data: Dict):
+
+    print('Add sketches ...')
 
     imgs = [
         data.get('first_img', ''),
@@ -40,10 +45,19 @@ def add_to_sketches(root: str, data: Dict):
     ]
 
     db.add_sketch(root=root,
-                       full=data['cropped_img'],
-                       scan=data.get('scan', ''),
-                       sub=[i for i in imgs if i],
-                       cmd=[shjoin(sys.argv)])
+                  full=data['cropped_img'],
+                  scan=data.get('scan', ''),
+                  sub=[i for i in imgs if i],
+                  cmd=[shjoin(sys.argv)])
+
+
+def add_observation(root: str, name: str, img_date: datetime):
+
+    print(f'Add observation for {name} ...')
+
+    db.add_obs(root,
+               name=name,
+               date=img_date.date().isoformat())
 
 
 def main():
@@ -63,7 +77,17 @@ def main():
     args = parser.parse_args()
 
     sketch_data = add_images(args)
-    add_to_sketches(root=args.project_root, data=sketch_data)
+    add_sketch(root=args.project_root, data=sketch_data)
+
+    if args.first_object:
+        add_observation(root=args.project_root,
+                        name=args.first_object,
+                        img_date=sketch_data['img_date'])
+
+    if args.second_object:
+        add_observation(root=args.project_root,
+                        name=args.second_object,
+                        img_date=sketch_data['img_date'])
 
 
 if __name__ == "__main__":
