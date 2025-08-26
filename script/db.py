@@ -3,6 +3,7 @@
 import common
 import project
 
+from natsort import natsorted
 from pathlib import Path
 from ruamel.yaml import YAML, comments
 from typing import Callable, Dict, List
@@ -126,3 +127,38 @@ def add_obs(root: str,
         add_to_list(obs_list, entry)
 
     save(project.obs_db(root), odb)
+
+
+def add_object(obj_dict: YamlDict, name: str):
+
+    db_names = list(obj_dict.keys())
+    if name in db_names:
+        print(f'Skipping {name}, already present')
+        return
+
+    db_names.append(name)
+    db_names = natsorted(db_names)
+    pos = db_names.index(name)
+
+    entry = {
+        'name': name,
+        'constellation': common.get_constellation(name),
+        'type': ''
+    }
+
+    obj_dict.insert(pos, name, entry)
+    if pos < (len(obj_dict) - 1):
+        obj_dict.yaml_set_comment_before_after_key(db_names[pos + 1], before='')
+
+
+def add_objects(root: str,
+                name: str):
+
+    odb = load(project.object_db(root))
+    obj_dict: YamlDict = odb['objects']
+
+    names = name.replace(', ', ',').split(',')
+    for n in names:
+        add_object(obj_dict, n)
+
+    save(project.object_db(root), odb)

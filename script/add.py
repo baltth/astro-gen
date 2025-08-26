@@ -59,6 +59,8 @@ def add_observation(root: str, name: str, img_date: datetime):
                name=name,
                date=img_date.date().isoformat())
 
+    db.add_objects(root, name=name)
+
 
 def main():
 

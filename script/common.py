@@ -140,3 +140,11 @@ def obs_day(date: str) -> str:
 
     # Observation before midnight, return the same day
     return d.date().isoformat()
+
+
+def get_constellation(name: str) -> str:
+
+    split_name = name.split()
+    if len(split_name) > 1 and constellations.is_constellation(split_name[-1]):
+        return split_name[-1]
+    return ''
