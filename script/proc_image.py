@@ -156,9 +156,12 @@ def print_db_aid(data: Dict):
         f'  - full: {data['cropped_img']}',
         '    scan: \'\''
     ]
+    if 'first_img' in data.keys() or 'second_img' in data.keys():
+        out += [
+            '    sub:'
+        ]
     if 'first_img' in data.keys():
         out += [
-            '    sub:',
             f'      - {data['first_img']}'
         ]
     if 'second_img' in data.keys():
@@ -178,7 +181,7 @@ def print_db_aid(data: Dict):
     print()
 
 
-def split_cmd(args):
+def split_cmd(args, print_aid: bool = False):
 
     src = Image.open(args.source_image)
 
@@ -207,12 +210,18 @@ def split_cmd(args):
         db_data['second_name'] = args.first_object
         db_data['second_img'] = n
 
+    if args.second_object and not args.first_object:
+        full_name = f'NA {args.second_object}'
+    else:
+        full_name = f'{args.first_object} {args.second_object}'
+
     n = save_object(img=cropped,
                     dest_dir=args.dest,
-                    object_name=f'{args.first_object} {args.second_object}')
+                    object_name=full_name)
     db_data['cropped_img'] = n
 
-    print_db_aid(db_data)
+    if print_aid:
+        print_db_aid(db_data)
 
 
 def copyright_cmd(args):
@@ -251,7 +260,11 @@ def main():
     split.add_argument('-o1', '--first-object', default='')
     split.add_argument('-o2', '--second-object', default='')
     split.add_argument('-w', '--show', action='store_true')
-    split.set_defaults(func=split_cmd)
+
+    def call_split(args):
+        split_cmd(args, print_aid=True)
+
+    split.set_defaults(func=call_split)
 
     cr = cmd.add_parser("copyright")
     cr.add_argument('source_image')

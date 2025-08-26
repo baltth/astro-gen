@@ -13,6 +13,11 @@ def site_root(project_root: str) -> str:
     return str(p.resolve())
 
 
+def site_images(project_root: str) -> str:
+    p = Path(site_root(project_root)) / 'img'
+    return str(p.resolve())
+
+
 def sketch_db(root: str) -> str:
     p = Path(root) / 'db' / 'sketch.yml'
     return str(p.resolve())
