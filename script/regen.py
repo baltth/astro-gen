@@ -66,16 +66,24 @@ def generate_obs(obs: Dict, sketch_db: List, object_db: Dict):
     img = project.image_url(obs['img'])
 
     names = obs['name']
+    if isinstance(names, str):
+        names = [names]
     links, notes = get_links_notes(sketch_db=sketch_db, obs=obs)
+    loc = obs.get('loc', '')
+    if not loc:
+        loc = DEFAULT_LOCATION
 
-    content = pages.observation_page(names=names,
+    data = pages.ObsData(names=names,
+                         loc=loc,
+                         date=obs['date'],
+                         nelm=obs.get('nelm', 0),
+                         seeing=obs.get('seeing', 0),
+                         ap=obs.get('ap', 0),
+                         mag=obs.get('mag', 0),
+                         fov=obs.get('fov', 0))
+
+    content = pages.observation_page(data=data,
                                      img=img,
-                                     date=obs['date'],
-                                     nelm=obs['nelm'],
-                                     ap=obs['ap'],
-                                     mag=obs['mag'],
-                                     fov=obs['fov'],
-                                     loc=obs.get('loc', DEFAULT_LOCATION),
                                      text=obs.get('text', ''),
                                      notes=notes,
                                      links=links,
