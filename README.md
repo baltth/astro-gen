@@ -9,10 +9,10 @@ and its [source](https://github.com/baltth/astro).
 
 ### Requirements
 
-- pyhton3 venv with packages
-  - natsort
-  - pillow
-  - pyhon-slugify
-  - yaml
+- _pyhton3 venv_ with packages
+  - `natsort`
+  - `pillow`
+  - `pyhon-slugify`
+  - `ruamel.yaml==0.18.15`
 
 ...

@@ -3,6 +3,7 @@
 import common
 import project
 
+from dataclasses import dataclass
 from typing import Dict, List, Union
 
 
@@ -14,32 +15,44 @@ def short_desc(obj_data: Dict) -> str:
     return f'{obj_data['type']} in '
 
 
-def obs_table(names: List[str],
-              date: str,
-              loc: str,
-              nelm: int,
-              ap: int,
-              mag: int,
-              fov: float) -> List[str]:
+@dataclass
+class ObsData:
+    names: List[str]
+    date: str
+    loc: str
+    nelm: float
+    seeing: int
+    ap: int
+    mag: int
+    fov: float
 
-    names_cell = ', '.join(common.pretty_name(names))
+
+def obs_table(data: ObsData) -> List[str]:
+
+    names_cell = ', '.join(common.pretty_name(data.names))
 
     md: List[str] = []
 
-    if len(names) > 1:
+    if len(data.names) > 1:
         md += [f'Objects | {names_cell}']
     else:
         md += [f'Object | {names_cell}']
 
     md += [
         '-|-',
-        f'Observed at | {loc}, {date}',
-        f'NELM | ~ {nelm / 10.0}',
-        f'Aperture | {ap} mm',
-        f'Magnification | {mag}x',
-        f'FOV | {fov} \u00b0',
-        ''
+        f'Observed at | {data.loc}, {data.date}',
     ]
+    if data.nelm:
+        md.append(f'NELM | ~ {data.nelm}')
+    if data.seeing:
+        md.append(f'Seeing | {data.seeing}')
+    if data.ap:
+        md.append(f'Aperture | {data.ap} mm')
+    if data.mag:
+        md.append(f'Magnification | {data.mag}x')
+    if data.fov:
+        md.append(f'FOV | {data.fov} \u00b0')
+    md.append('')
 
     return md
 
@@ -192,35 +205,19 @@ def index_data(data: Union[List, Dict]) -> List[str]:
     return md
 
 
-def observation_page(names: Union[str, List[str]],
+def observation_page(data: ObsData,
                      img: str,
-                     date: str,
-                     nelm: int,
-                     ap: int,
-                     mag: int,
-                     fov: float,
                      text: str,
                      notes: str = '',
-                     loc: str = '',
                      links: Dict[str, str] = {},
                      object_data: Dict = {}) -> str:
 
-    if isinstance(names, str):
-        names = [names]
+    title = common.pretty_name_str(data.names)
 
-    title = common.pretty_name_str(names)
-
-    o_table = obs_table(
-        names=names,
-        date=date,
-        loc=loc,
-        nelm=nelm,
-        ap=ap,
-        mag=mag,
-        fov=fov)
+    o_table = obs_table(data)
 
     md = obs_body(title=title,
-                  names=names,
+                  names=data.names,
                   img=img,
                   table=o_table,
                   text=text,

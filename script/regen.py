@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import common
+import db
 import index
 import pages
 import project
@@ -65,16 +66,24 @@ def generate_obs(obs: Dict, sketch_db: List, object_db: Dict):
     img = project.image_url(obs['img'])
 
     names = obs['name']
+    if isinstance(names, str):
+        names = [names]
     links, notes = get_links_notes(sketch_db=sketch_db, obs=obs)
+    loc = obs.get('loc', '')
+    if not loc:
+        loc = DEFAULT_LOCATION
 
-    content = pages.observation_page(names=names,
+    data = pages.ObsData(names=names,
+                         loc=loc,
+                         date=obs['date'],
+                         nelm=obs.get('nelm', 0),
+                         seeing=obs.get('seeing', 0),
+                         ap=obs.get('ap', 0),
+                         mag=obs.get('mag', 0),
+                         fov=obs.get('fov', 0))
+
+    content = pages.observation_page(data=data,
                                      img=img,
-                                     date=obs['date'],
-                                     nelm=obs['nelm'],
-                                     ap=obs['ap'],
-                                     mag=obs['mag'],
-                                     fov=obs['fov'],
-                                     loc=obs.get('loc', DEFAULT_LOCATION),
                                      text=obs.get('text', ''),
                                      notes=notes,
                                      links=links,
@@ -182,21 +191,16 @@ def main():
 
     print(f'Project path: {args.project_root}')
 
-    sketch_db = load(project.sketch_db(args.project_root))
-    assert isinstance(sketch_db, dict)
-
-    obs_db = load(project.obs_db(args.project_root))
-    assert isinstance(obs_db, dict)
-
-    obj_db = load(project.object_db(args.project_root))
-    assert isinstance(obj_db, dict)
+    sketches = db.sketches(args.project_root)
+    observations = db.observations(args.project_root)
+    objects = db.objects(args.project_root)
 
     global project_root
     project_root = args.project_root
 
-    regen(obs_db=obs_db['observations'],
-          sketch_db=sketch_db['sketches'],
-          object_db=obj_db['objects'])
+    regen(obs_db=observations,
+          sketch_db=sketches,
+          object_db=objects)
 
     print('Done')
 

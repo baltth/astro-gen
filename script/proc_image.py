@@ -5,6 +5,7 @@ from tempfile import mkstemp
 from copy import deepcopy
 from datetime import datetime
 from typing import Tuple, Dict
+from shlex import join as shjoin
 import sys
 
 from PIL import Image, ImageDraw, ImageFont, ExifTags
@@ -145,40 +146,7 @@ def save_object(img: Image, dest_dir: str, object_name: str) -> str:
     return f'{name}.jpg'
 
 
-def print_db_aid(data: Dict):
-
-    if 'cropped_img' not in data.keys():
-        return
-
-    cmd = ' '.join(sys.argv)
-
-    out = [
-        f'  - full: {data['cropped_img']}',
-        '    scan: \'\''
-    ]
-    if 'first_img' in data.keys():
-        out += [
-            '    sub:',
-            f'      - {data['first_img']}'
-        ]
-    if 'second_img' in data.keys():
-        out += [
-            f'      - {data['second_img']}',
-        ]
-    out += [
-        '    _cmd:',
-        '      - ./script/proc_image.py copyright TO_ADD',
-        f'      - {cmd}'
-    ]
-
-    print('---')
-    print('Add to sketch db:')
-    print('---')
-    print('\n'.join(out))
-    print()
-
-
-def split_cmd(args):
+def split_cmd(args) -> Dict:
 
     src = Image.open(args.source_image)
 
@@ -193,6 +161,7 @@ def split_cmd(args):
         img2.show()
 
     db_data = {}
+    db_data['img_date'] = image_date(src)
 
     if args.first_object:
         n = save_object(img=img1, dest_dir=args.dest, object_name=args.first_object)
@@ -207,12 +176,17 @@ def split_cmd(args):
         db_data['second_name'] = args.first_object
         db_data['second_img'] = n
 
+    if args.second_object and not args.first_object:
+        full_name = f'NA {args.second_object}'
+    else:
+        full_name = f'{args.first_object} {args.second_object}'
+
     n = save_object(img=cropped,
                     dest_dir=args.dest,
-                    object_name=f'{args.first_object} {args.second_object}')
+                    object_name=full_name)
     db_data['cropped_img'] = n
 
-    print_db_aid(db_data)
+    return db_data
 
 
 def copyright_cmd(args):
