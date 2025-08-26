@@ -5,6 +5,7 @@ from tempfile import mkstemp
 from copy import deepcopy
 from datetime import datetime
 from typing import Tuple, Dict
+from shlex import join as shjoin
 import sys
 
 from PIL import Image, ImageDraw, ImageFont, ExifTags
@@ -145,43 +146,7 @@ def save_object(img: Image, dest_dir: str, object_name: str) -> str:
     return f'{name}.jpg'
 
 
-def print_db_aid(data: Dict):
-
-    if 'cropped_img' not in data.keys():
-        return
-
-    cmd = ' '.join(sys.argv)
-
-    out = [
-        f'  - full: {data['cropped_img']}',
-        '    scan: \'\''
-    ]
-    if 'first_img' in data.keys() or 'second_img' in data.keys():
-        out += [
-            '    sub:'
-        ]
-    if 'first_img' in data.keys():
-        out += [
-            f'      - {data['first_img']}'
-        ]
-    if 'second_img' in data.keys():
-        out += [
-            f'      - {data['second_img']}',
-        ]
-    out += [
-        '    _cmd:',
-        '      - ./script/proc_image.py copyright TO_ADD',
-        f'      - {cmd}'
-    ]
-
-    print('---')
-    print('Add to sketch db:')
-    print('---')
-    print('\n'.join(out))
-    print()
-
-
-def split_cmd(args, print_aid: bool = False):
+def split_cmd(args) -> Dict:
 
     src = Image.open(args.source_image)
 
@@ -220,8 +185,7 @@ def split_cmd(args, print_aid: bool = False):
                     object_name=full_name)
     db_data['cropped_img'] = n
 
-    if print_aid:
-        print_db_aid(db_data)
+    return db_data
 
 
 def copyright_cmd(args):
@@ -260,11 +224,7 @@ def main():
     split.add_argument('-o1', '--first-object', default='')
     split.add_argument('-o2', '--second-object', default='')
     split.add_argument('-w', '--show', action='store_true')
-
-    def call_split(args):
-        split_cmd(args, print_aid=True)
-
-    split.set_defaults(func=call_split)
+    split.set_defaults(func=split_cmd)
 
     cr = cmd.add_parser("copyright")
     cr.add_argument('source_image')

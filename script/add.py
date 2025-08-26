@@ -1,28 +1,49 @@
 #!/usr/bin/env python3
 
+import db
 import proc_image
 import project
 
 import argparse
 from copy import deepcopy
 from pathlib import Path
-import yaml
+from shlex import join as shjoin
+import sys
+from typing import Dict
 
 
-def add_images(args: argparse.Namespace):
+def add_images(args: argparse.Namespace) -> Dict:
 
     split_args = deepcopy(args)
     setattr(split_args, 'source_image', args.img)
     setattr(split_args, 'dest',  project.site_images(args.project_root))
     setattr(split_args, 'show', False)
-    proc_image.split_cmd(split_args)
+    db_data = proc_image.split_cmd(split_args)
 
-    cr_args = deepcopy(args)
-    setattr(cr_args, 'source_image', args.scan)
-    scan_file = Path(args.scan).parts[-1]
-    setattr(cr_args, 'out',  f'{project.site_root(args.project_root)}/scan/{scan_file}')
-    setattr(cr_args, 'show', False)
-    proc_image.copyright_cmd(cr_args)
+    if args.scan:
+        cr_args = deepcopy(args)
+        setattr(cr_args, 'source_image', args.scan)
+        scan_file = Path(args.scan).parts[-1]
+        setattr(cr_args, 'out',  f'{project.site_root(args.project_root)}/scan/{scan_file}')
+        setattr(cr_args, 'show', False)
+        proc_image.copyright_cmd(cr_args)
+        db_data['scan'] = scan_file
+
+    return db_data
+
+
+def add_to_sketches(root: str, data: Dict):
+
+    imgs = [
+        data.get('first_img', ''),
+        data.get('second_img', '')
+    ]
+
+    db.add_sketch(root=root,
+                       full=data['cropped_img'],
+                       scan=data.get('scan', ''),
+                       sub=[i for i in imgs if i],
+                       cmd=[shjoin(sys.argv)])
 
 
 def main():
@@ -41,7 +62,8 @@ def main():
 
     args = parser.parse_args()
 
-    add_images(args)
+    sketch_data = add_images(args)
+    add_to_sketches(root=args.project_root, data=sketch_data)
 
 
 if __name__ == "__main__":
