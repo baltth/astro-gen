@@ -5,6 +5,11 @@ Generator for astronomy observation page.
 See [astro](https://baltth.github.io/astro)
 and its [source](https://github.com/baltth/astro).
 
+> This program is specialized for my site and workflow
+> but going to be generalized later. Please contact
+> me if you're interested in generating your
+> own observation page.
+
 ---
 
 ### Requirements
