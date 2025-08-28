@@ -150,10 +150,11 @@ def obs_body(title: str,
         common.md_image(title, f'{img}'),
         ''
     ]
-    md += table
 
     if text:
-        md += text.splitlines()
+        md += text.splitlines() + ['']
+
+    md += table
 
     return md + ['']
 
