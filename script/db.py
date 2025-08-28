@@ -101,31 +101,29 @@ def add_obs(root: str,
     entry_name = names if len(names) > 1 else name
 
     date_in_file = date.replace('-', '')
-
-    entry = {
-        'name': entry_name,
-        'date': date,
-        'img': common.sketch_name(entry_name, date_in_file)
-    }
+    img = common.sketch_name(entry_name, date_in_file)
 
     odb = load(project.obs_db(root))
     obs_list: YamlList[YamlDict] = odb['observations']
 
-    updated = update_in_list(obs_list,
-                             entry,
-                             lambda x, y: x['name'] == y['name'] and x['img'] == y['img'])
-    if not updated:
-        entry.update({
-            'loc': '',
-            'nelm': 0,
-            'seeing': 0,
-            'ap': 0,
-            'mag': 0,
-            'fov': 0,
-            'text': ''
-        })
-        add_to_list(obs_list, entry)
+    if any(o['name'] == entry_name and o['img'] == img for o in obs_list):
+        print(f'Skipping {entry_name} / {img}, already present')
+        return
 
+    entry = {
+        'name': entry_name,
+        'img': common.sketch_name(entry_name, date_in_file),
+        'date': date,
+        'loc': '',
+        'nelm': 0,
+        'seeing': 0,
+        'ap': 0,
+        'mag': 0,
+        'fov': 0,
+        'text': ''
+    }
+
+    add_to_list(obs_list, entry)
     save(project.obs_db(root), odb)
 
 
