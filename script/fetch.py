@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
+from db import add_objects
+from datatypes import FetchedData
+
 import argparse
 import base64
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict
 import json
 from os import environ
 import requests
@@ -10,18 +13,6 @@ from sys import stdout
 from typing import Dict, List, Optional, Tuple
 
 from ruamel.yaml import YAML
-
-
-@dataclass
-class FetchedData:
-    name: str
-    ra: str
-    decl: str
-    const: str
-    type: str
-    subtype: str = ''
-    spectral_class: str = ''
-    alias: List[str] = field(default_factory=list)
 
 
 def astronomyapi_access() -> Tuple[str, str]:
@@ -74,7 +65,7 @@ def map_data(data: Dict) -> FetchedData:
     res = FetchedData(name=data['name'],
                       ra=pos['rightAscension']['string'],
                       decl=pos['declination']['string'],
-                      const=data['position']['constellation']['short'],
+                      constellation=data['position']['constellation']['short'],
                       type=data['type']['name'])
 
     res.subtype = data['subType']['name']
@@ -120,7 +111,12 @@ def main():
         print('Please define ASTRONOMYAPI_ID and ASTRONOMYAPI_SECRET environment variables')
         return 1
 
-    d = asdict(fetch(args.object, app_id=app_id, app_secret=secret))
+    fetched = fetch(args.object, app_id=app_id, app_secret=secret)
+    if not fetched:
+        print(f'No object found: {args.object}')
+        return 0
+
+    d = asdict(fetched)
     if not d['spectral_class']:
         del d['spectral_class']
 

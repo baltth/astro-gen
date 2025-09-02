@@ -48,6 +48,10 @@ def pretty_name(name: Union[str, List[str]]) -> Union[str, List[str]]:
     return name
 
 
+def names_to_list(names: str) -> List[str]:
+    return names.replace(', ', ',').split(',')
+
+
 def traditional_name(name: Union[str, List[str]]) -> Union[str, List[str]]:
 
     if isinstance(name, list):

@@ -2,7 +2,10 @@
 
 import common
 import project
+from datatypes import FetchedData
 
+from copy import deepcopy
+from dataclasses import asdict
 from natsort import natsorted
 from pathlib import Path
 from ruamel.yaml import YAML, comments
@@ -97,7 +100,7 @@ def add_obs(root: str,
             name: str,
             date: str):
 
-    names = name.replace(', ', ',').split(',')
+    names = common.names_to_list(name)
     entry_name = names if len(names) > 1 else name
 
     date_in_file = date.replace('-', '')
@@ -127,36 +130,81 @@ def add_obs(root: str,
     save(project.obs_db(root), odb)
 
 
-def add_object(obj_dict: YamlDict, name: str):
+def add_object(obj_dict: YamlDict,
+               name: str,
+               fetched: FetchedData,
+               refresh: bool = False) -> bool:
+
+    def new_entry() -> Dict:
+        return {
+            'name': name,
+            'constellation': common.get_constellation(name),
+            'type': ''
+        }
+
+    def refresh_with_fetched(entry: Dict, fetched: FetchedData) -> Dict:
+        e = deepcopy(entry)
+        if not e['constellation']:
+            e['constellation'] = fetched.constellation
+        if not e['type']:
+            e['type'] = fetched.type.lower()
+        e['ra'] = fetched.ra
+        e['decl'] = fetched.decl
+
+        f_dict = asdict(fetched)
+        keys_to_del = ['name', 'constellation', 'ra', 'decl']
+        if not fetched.spectral_class:
+            keys_to_del.append('spectral_class')
+
+        f_dict = {k: v for k, v in f_dict.items() if k not in keys_to_del}
+        if '_fetched' not in e.keys():
+            e['_fetched'] = {}
+        e['_fetched'][fetched.name] = f_dict
+
+        return e
+
+    print(f'Adding {name} ...')
 
     db_names = list(obj_dict.keys())
     if name in db_names:
-        print(f'Skipping {name}, already present')
-        return
+        if refresh:
+            entry = obj_dict[name]
+            del obj_dict[name]
+            db_names.remove(name)
+        else:
+            print(f'Skipping {name}, already present')
+            return False
+    else:
+        entry = new_entry()
 
     db_names.append(name)
     db_names = natsorted(db_names)
     pos = db_names.index(name)
 
-    entry = {
-        'name': name,
-        'constellation': common.get_constellation(name),
-        'type': ''
-    }
+    fetched_valid = bool(fetched.name)
+    if fetched_valid:
+        entry = refresh_with_fetched(entry, fetched)
 
     obj_dict.insert(pos, name, entry)
     if pos < (len(obj_dict) - 1):
         obj_dict.yaml_set_comment_before_after_key(db_names[pos + 1], before='')
 
+    return True
+
 
 def add_objects(root: str,
-                name: str):
+                name: str,
+                fetched: Dict[str, FetchedData] = {},
+                refresh: bool = False):
 
     odb = load(project.object_db(root))
     obj_dict: YamlDict = odb['objects']
 
     names = name.replace(', ', ',').split(',')
+    added = False
     for n in names:
-        add_object(obj_dict, n)
+        f = fetched.get(n, FetchedData())
+        added = add_object(obj_dict, n, f, refresh=refresh) or added
 
-    save(project.object_db(root), odb)
+    if added:
+        save(project.object_db(root), odb)
