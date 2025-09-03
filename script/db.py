@@ -177,6 +177,10 @@ def add_object(obj_dict: YamlDict,
         e['ra'] = fetched.ra
         e['decl'] = fetched.decl
 
+        if not e.get('desc', '') and not fetched.spectral_class and fetched.subtype:
+            if fetched.subtype != fetched.type:
+                e['desc'] = fetched.subtype.lower() + ' ' + fetched.type.lower()
+
         f_dict = asdict(fetched)
         keys_to_del = ['name', 'constellation', 'ra', 'decl']
         if not fetched.spectral_class:

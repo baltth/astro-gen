@@ -37,6 +37,7 @@ class ObjectBase:
 
 @dataclass
 class ObjectData(ObjectBase):
+    desc: str = ''
     aka: List[str] = field(default_factory=list)
     data: Dict[str, str] = field(default_factory=dict)
 

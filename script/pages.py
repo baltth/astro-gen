@@ -67,6 +67,7 @@ def obj_table(data: List[ObjectData]) -> List[str]:
 
     ROWS = [
         'Objects' if len(data) > 1 else 'Object',
+        'Type',
         'RightAscension',
         'Declination'
     ]
@@ -74,6 +75,7 @@ def obj_table(data: List[ObjectData]) -> List[str]:
     def col(obj: ObjectData) -> List[str]:
         return [
             common.pretty_name(obj.name),
+            obj.desc,
             obj.ra,
             obj.decl
         ]
