@@ -1,30 +1,14 @@
 #!/usr/bin/env python3
 
 import common
+from datatypes import ObjectData, ObsData
 import project
 
-from dataclasses import dataclass
 from typing import Dict, List, Union
 
 
 def emph(s: str) -> str:
     return f'_{s}_'
-
-
-def short_desc(obj_data: Dict) -> str:
-    return f'{obj_data['type']} in '
-
-
-@dataclass
-class ObsData:
-    names: List[str]
-    date: str
-    loc: str
-    nelm: float
-    seeing: int
-    ap: int
-    mag: int
-    fov: float
 
 
 def obs_table(data: ObsData) -> List[str]:
@@ -58,7 +42,7 @@ def obs_table(data: ObsData) -> List[str]:
 
 
 def tag_line(name: str,
-             object_data: Dict) -> str:
+             object_data: ObjectData) -> str:
 
     def name_tags(n: str) -> List[str]:
         tags: List[str] = []
@@ -75,9 +59,7 @@ def tag_line(name: str,
         return tags
 
     tags = [emph(t) for t in name_tags(name)]
-
-    alias = object_data.get('aka', [])
-    tags += [emph(a) for a in alias]
+    tags += [emph(a) for a in object_data.aka]
 
     sd = common.short_desc(object_data)
     if sd:
@@ -142,9 +124,9 @@ def obs_body(title: str,
              img: str,
              table: List[str],
              text: str,
-             object_data: Dict) -> List[str]:
+             object_data: Dict[str, ObjectData]) -> List[str]:
 
-    md = [tag_line(n, object_data.get(n, {})) + '  ' for n in names]
+    md = [tag_line(n, object_data.get(n, ObjectData())) + '  ' for n in names]
     md += [
         '',
         common.md_image(title, f'{img}'),
@@ -170,7 +152,7 @@ def log_row(names: Union[str, List[str]], date: str, from_main: bool = False) ->
 def index_row(obj_name: str,
               all_names: Union[str, List[str]],
               date: str,
-              obj_data: Dict) -> List[str]:
+              obj_data: ObjectData) -> List[str]:
 
     pretty_name: str = common.pretty_name(obj_name)
     url = project.obs_page_url(all_names, date)
@@ -206,22 +188,21 @@ def index_data(data: Union[List, Dict]) -> List[str]:
     return md
 
 
-def observation_page(data: ObsData,
+def observation_page(obs_data: ObsData,
                      img: str,
-                     text: str,
                      notes: str = '',
                      links: Dict[str, str] = {},
-                     object_data: Dict = {}) -> str:
+                     object_data: Dict[str, ObjectData] = {}) -> str:
 
-    title = common.pretty_name_str(data.names)
+    title = common.pretty_name_str(obs_data.names)
 
-    o_table = obs_table(data)
+    o_table = obs_table(obs_data)
 
     md = obs_body(title=title,
-                  names=data.names,
+                  names=obs_data.names,
                   img=img,
                   table=o_table,
-                  text=text,
+                  text=obs_data.text,
                   object_data=object_data)
     return page(title=title,
                 content=md,

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import common
+from datatypes import ObsData, ObjectData
 import constellations
 import pages
 
@@ -10,19 +11,17 @@ from operator import itemgetter
 from typing import Callable, Dict, List
 
 
-def raw_data(obs_db: List, object_db: Dict) -> List:
+def raw_data(obs_db: List[ObsData], object_db: Dict[str, ObjectData]) -> List:
 
     data = {}
 
-    sorted_obs = natsorted(obs_db, key=itemgetter('date'))
+    sorted_obs = natsorted(obs_db, key=lambda x: x.date)
     for obs in sorted_obs:
-        names = obs['name'] if isinstance(obs['name'], list) else [obs['name']]
-        for n in names:
-            obj = object_db[n]
+        for n in obs.names:
             data[n] = {
                 'name': n,
-                'obj': obj,
-                'row': pages.index_row(n, names, common.obs_day(obs['date']), obj)
+                'obj': object_db[n],
+                'row': pages.index_row(n, obs.names, common.obs_day(obs.date), object_db[n])
             }
 
     return natsorted(data.values(), key=itemgetter('name'))
@@ -52,21 +51,21 @@ def subpage(title: str, content: List[str]) -> List[str]:
     return [pages.subtitle(title), ''] + content + ['']
 
 
-def index_content(obs_db: Dict, object_db: Dict) -> List[str]:
+def index_content(obs_db: Dict, object_db: Dict[str, ObjectData]) -> List[str]:
 
     raw = raw_data(obs_db, object_db)
 
-    def by_type(obj: Dict) -> str:
+    def by_type(obj: ObjectData) -> str:
         # todo
-        if 'star' in obj['type']:
+        if 'star' in obj.type:
             return 'Stars'
-        if 'planet' in obj['type'].split():
+        if 'planet' in obj.type.split():
             return 'Other'
         return 'Deep space'
 
-    def by_constellation(obj: Dict) -> str:
-        if constellations.is_constellation(obj['constellation']):
-            return constellations.name(obj['constellation'])
+    def by_constellation(obj: ObjectData) -> str:
+        if constellations.is_constellation(obj.constellation):
+            return constellations.name(obj.constellation)
         return 'Other'
 
     index_by_cat = pages.index_data(collect(raw, key=by_type))

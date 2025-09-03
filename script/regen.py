@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import common
+from datatypes import ObsData, ObjectData, SketchData
 import db
 import index
 import pages
 import project
 
 import argparse
+from copy import copy
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
@@ -25,91 +27,75 @@ def write_file(cat: str, name: str, content: str):
     out_path.write_text(content, encoding='utf8')
 
 
-def sketch_of_obs(db: List, obs: Dict) -> Dict:
+def sketch_of_obs(db: List[SketchData], obs: ObsData) -> SketchData:
 
-    res = [s for s in db if obs['img'] in s['sub']]
+    res = [s for s in db if obs.img in s.sub]
 
     assert len(res) == 1
     return res[0]
 
 
-def object_data(object_db: Dict, names: Union[str, List[str]]) -> Dict:
+def object_data(object_db: Dict[str, ObjectData], names: Union[str, List[str]]) -> Dict[str, ObjectData]:
 
     if isinstance(names, str):
         return object_data(object_db, [names])
 
-    return {n: object_db.get(n, {}) for n in names}
+    return {n: object_db[n] for n in names if n in object_db.keys()}
 
 
-def get_links_notes(sketch_db: List, obs: Dict) -> Tuple[Dict, str]:
+def get_links_notes(sketch_db: List[SketchData], obs: ObsData) -> Tuple[Dict, str]:
 
     sketch = sketch_of_obs(sketch_db, obs)
     links = {
-        'Full sketch': project.image_url(sketch['full'])
+        'Full sketch': project.image_url(sketch.full)
     }
 
-    notes = sketch.get('notes', '')
+    if sketch.scan:
+        links['Original sketch'] = project.scan_url(sketch.scan)
 
-    scan = sketch.get('scan', '')
-    if scan:
-        links['Original sketch'] = project.scan_url(scan)
-
-    return (links, notes)
+    return (links, sketch.notes)
 
 
-def obs_page_name(obs: Dict) -> str:
-    return common.obs_page_name(obs['name'], common.obs_day(obs['date']))
+def obs_page_name(obs: ObsData) -> str:
+    return common.obs_page_name(obs.names, common.obs_day(obs.date))
 
 
-def generate_obs(obs: Dict, sketch_db: List, object_db: Dict):
+def generate_obs(obs: ObsData, sketch_db: List[SketchData], object_db: Dict[str, ObjectData]):
 
-    img = project.image_url(obs['img'])
+    img = project.image_url(obs.img)
 
-    names = obs['name']
-    if isinstance(names, str):
-        names = [names]
     links, notes = get_links_notes(sketch_db=sketch_db, obs=obs)
-    loc = obs.get('loc', '')
-    if not loc:
-        loc = DEFAULT_LOCATION
 
-    data = pages.ObsData(names=names,
-                         loc=loc,
-                         date=obs['date'],
-                         nelm=obs.get('nelm', 0),
-                         seeing=obs.get('seeing', 0),
-                         ap=obs.get('ap', 0),
-                         mag=obs.get('mag', 0),
-                         fov=obs.get('fov', 0))
+    data = copy(obs)
+    data.loc = obs.loc if obs.loc else DEFAULT_LOCATION
 
-    content = pages.observation_page(data=data,
+    content = pages.observation_page(obs_data=data,
                                      img=img,
-                                     text=obs.get('text', ''),
                                      notes=notes,
                                      links=links,
-                                     object_data=object_data(object_db, names))
+                                     object_data=object_data(object_db, data.names))
 
-    write_file('obs', obs_page_name(obs), content)
+    write_file('obs', obs_page_name(data), content)
 
 
-def obs_log_data(obs_db: List, from_main: bool) -> List:
+def obs_log_data(obs_db: List[ObsData], from_main: bool) -> List:
 
-    def row(obs: Dict) -> List[str]:
-        obs_day = common.obs_day(obs['date'])
-        return pages.log_row(obs['name'], obs_day, from_main)
+    def row(obs: ObsData) -> List[str]:
+        obs_day = common.obs_day(obs.date)
+        return pages.log_row(obs.names, obs_day, from_main)
 
     data = [row(o) for o in obs_db]
     return sorted(data, key=itemgetter(0), reverse=True)
 
 
-def generate_obs_log(obs_db: List):
+def generate_obs_log(obs_db: List[ObsData]):
 
     content = pages.index_page(title='All observations',
                                data=obs_log_data(obs_db, from_main=False))
     write_file('pages', 'log.md', content)
 
 
-def generate_index(obs_db: List, object_db: Dict):
+def generate_index(obs_db: List[ObsData], object_db: Dict[str, ObjectData]):
 
     content = pages.page(title='Index',
                          content=index.index_content(obs_db=obs_db, object_db=object_db))
@@ -128,7 +114,7 @@ def load_md(file: str) -> List[str]:
         return []
 
 
-def generate_main(obs_db: List):
+def generate_main(obs_db: List[ObsData]):
 
     latest_obs = obs_log_data(obs_db, from_main=True)[:10]
 
@@ -160,7 +146,7 @@ def generate_main(obs_db: List):
     write_file('', 'index.md', pages.join(content))
 
 
-def regen(obs_db: List, sketch_db: Dict, object_db: Dict):
+def regen(obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[str, ObjectData]):
 
     print('Generating ...')
 

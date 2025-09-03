@@ -2,7 +2,7 @@
 
 import common
 import project
-from datatypes import FetchedData
+from datatypes import ObsData, ObjectData, FetchedData, SketchData, create
 
 from copy import deepcopy
 from dataclasses import asdict
@@ -29,22 +29,48 @@ def load(db: str) -> YamlDict:
     return data
 
 
-def sketches(root: str) -> List:
+def sketches_raw(root: str) -> List[Dict]:
 
     sketch_db = load(project.sketch_db(root))
     return list(sketch_db['sketches'])
 
 
-def observations(root: str) -> List:
+def sketches(root: str) -> List[SketchData]:
+
+    raw = sketches_raw(root)
+    return [create(SketchData, d) for d in raw]
+
+
+def observations_raw(root: str) -> List[Dict]:
 
     obs_db = load(project.obs_db(root))
     return list(obs_db['observations'])
 
 
-def objects(root: str) -> Dict:
+def observations(root: str) -> List[ObsData]:
+
+    raw = observations_raw(root)
+    for r in raw:
+        if isinstance(r['name'], str):
+            r['names'] = [r['name']]
+        else:
+            r['names'] = r['name']
+        del r['name']
+    return [create(ObsData, d) for d in raw]
+
+
+def objects_raw(root: str) -> Dict[str, Dict]:
 
     obj_db = load(project.object_db(root))
     return dict(obj_db['objects'])
+
+
+def objects(root: str) -> Dict[str, ObjectData]:
+
+    raw = objects_raw(root)
+    for k, v in raw.items():
+        v['name'] = k
+    return {k: create(ObjectData, v) for k, v in raw.items()}
 
 
 def save(db: str, data: Dict):
