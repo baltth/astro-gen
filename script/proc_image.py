@@ -5,8 +5,6 @@ from tempfile import mkstemp
 from copy import deepcopy
 from datetime import datetime
 from typing import Tuple, Dict
-from shlex import join as shjoin
-import sys
 
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 from slugify import slugify

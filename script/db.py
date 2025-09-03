@@ -2,7 +2,7 @@
 
 import common
 import project
-from datatypes import ObsData, ObjectData, FetchedData, SketchData, create
+from datatypes import ObsData, ObjectData, FetchedData, SketchData, create, DATA_NOTE
 
 from copy import deepcopy
 from dataclasses import asdict
@@ -156,6 +156,37 @@ def add_obs(root: str,
     save(project.obs_db(root), odb)
 
 
+def _refresh_with_fetched(entry: Dict, fetched: FetchedData) -> Dict:
+
+    def mark_fetched(data: str) -> str:
+        if data:
+            return data + ' ' + DATA_NOTE
+
+    e = deepcopy(entry)
+    if not e['constellation']:
+        e['constellation'] = fetched.constellation
+    if not e['type']:
+        e['type'] = fetched.type.lower()
+    e['ra'] = mark_fetched(fetched.ra)
+    e['decl'] = mark_fetched(fetched.decl)
+
+    if not e.get('desc', '') and not fetched.spectral_class and fetched.subtype:
+        if fetched.subtype != fetched.type:
+            e['desc'] = mark_fetched(fetched.subtype.lower() + ' ' + fetched.type.lower())
+
+    f_dict = asdict(fetched)
+    keys_to_del = ['name', 'constellation', 'ra', 'decl']
+    if not fetched.spectral_class:
+        keys_to_del.append('spectral_class')
+
+    f_dict = {k: v for k, v in f_dict.items() if k not in keys_to_del}
+    if '_fetched' not in e.keys():
+        e['_fetched'] = {}
+    e['_fetched'][fetched.name] = f_dict
+
+    return e
+
+
 def add_object(obj_dict: YamlDict,
                name: str,
                fetched: FetchedData,
@@ -167,31 +198,6 @@ def add_object(obj_dict: YamlDict,
             'constellation': common.get_constellation(name),
             'type': ''
         }
-
-    def refresh_with_fetched(entry: Dict, fetched: FetchedData) -> Dict:
-        e = deepcopy(entry)
-        if not e['constellation']:
-            e['constellation'] = fetched.constellation
-        if not e['type']:
-            e['type'] = fetched.type.lower()
-        e['ra'] = fetched.ra
-        e['decl'] = fetched.decl
-
-        if not e.get('desc', '') and not fetched.spectral_class and fetched.subtype:
-            if fetched.subtype != fetched.type:
-                e['desc'] = fetched.subtype.lower() + ' ' + fetched.type.lower()
-
-        f_dict = asdict(fetched)
-        keys_to_del = ['name', 'constellation', 'ra', 'decl']
-        if not fetched.spectral_class:
-            keys_to_del.append('spectral_class')
-
-        f_dict = {k: v for k, v in f_dict.items() if k not in keys_to_del}
-        if '_fetched' not in e.keys():
-            e['_fetched'] = {}
-        e['_fetched'][fetched.name] = f_dict
-
-        return e
 
     print(f'Adding {name} ...')
 
@@ -213,7 +219,7 @@ def add_object(obj_dict: YamlDict,
 
     fetched_valid = bool(fetched.name)
     if fetched_valid:
-        entry = refresh_with_fetched(entry, fetched)
+        entry = _refresh_with_fetched(entry, fetched)
 
     obj_dict.insert(pos, name, entry)
     if pos < (len(obj_dict) - 1):

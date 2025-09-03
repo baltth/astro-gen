@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import common
-from datatypes import ObjectData, ObsData
+from datatypes import ObjectData, ObsData, DATA_NOTE
 import project
 
 from typing import Callable, Dict, List, Union
@@ -68,19 +68,26 @@ def obj_table(data: List[ObjectData]) -> List[str]:
     ROWS = [
         'Objects' if len(data) > 1 else 'Object',
         'Type',
-        'RightAscension',
-        'Declination'
+        'RA',
+        'Dec'
     ]
 
+    custom_keys = dict.fromkeys(k for d in data for k in d.data.keys()).keys()
+
     def col(obj: ObjectData) -> List[str]:
-        return [
+        d = [
             common.pretty_name(obj.name),
             obj.desc,
             obj.ra,
             obj.decl
         ]
 
-    return md_table(data=data, make_col=col, row_headers=ROWS)
+        for k in custom_keys:
+            d.append(str(obj.data.get(k, '')))
+
+        return d
+
+    return md_table(data=data, make_col=col, row_headers=ROWS+list(custom_keys))
 
 
 def tag_line(name: str,
@@ -194,6 +201,12 @@ def obs_body(title: str,
             subtitle('Object data', level=4),
             ''
         ] + obj_tab
+
+        if any(f' {DATA_NOTE}' in row for row in obj_tab):
+            md += [
+                f'{DATA_NOTE} fetched from [astronomyapi.com](http://astronomyapi.com)',
+                ''
+            ]
 
     if len(md[-1]) > 0:
         md.append('')

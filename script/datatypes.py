@@ -53,3 +53,6 @@ def create(cls: Type, d: Dict) -> Any:
     KEYS = [f.name for f in fields(cls)]
     filt = {k: v for k, v in d.items() if k in KEYS}
     return cls(**filt)
+
+
+DATA_NOTE = '\u2020'    # 'dagger': †
