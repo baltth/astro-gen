@@ -4,41 +4,81 @@ import common
 from datatypes import ObjectData, ObsData
 import project
 
-from typing import Dict, List, Union
+from typing import Callable, Dict, List, Union
 
 
 def emph(s: str) -> str:
     return f'_{s}_'
 
 
+def md_table(data: List, make_col: Callable, row_headers: List[str]) -> List[str]:
+
+    def empty_data(r: List[str]) -> bool:
+        return not any(r[1:])
+
+    obj_data = [make_col(d) for d in data]
+
+    cols = [row_headers] + [d for d in obj_data if not empty_data(d)]  # drop empty columns
+    if len(cols) == 1:
+        # Only the row header remains
+        return []
+
+    rows = [list(r) for r in zip(*cols)]
+
+    table_data = [r for r in rows if not empty_data(r)]  # drop empty rows
+
+    assert table_data
+    if len(table_data) == 1:
+        # Only the col header remains
+        return []
+
+    table = [' | '.join(row) for row in table_data]
+    headline = '|'.join(['-'] * len(cols))
+    return [table[0], headline] + table[1:] + ['']
+
+
 def obs_table(data: ObsData) -> List[str]:
 
-    names_cell = ', '.join(common.pretty_name(data.names))
-
-    md: List[str] = []
-
-    if len(data.names) > 1:
-        md += [f'Objects | {names_cell}']
-    else:
-        md += [f'Object | {names_cell}']
-
-    md += [
-        '-|-',
-        f'Observed at | {data.loc}, {data.date}',
+    ROWS = [
+        'Objects' if len(data.names) > 1 else 'Object',
+        'Observed at',
+        'NELM',
+        'Seeing',
+        'Aperture',
+        'Magnification',
+        'FOV'
     ]
-    if data.nelm:
-        md.append(f'NELM | ~ {data.nelm}')
-    if data.seeing:
-        md.append(f'Seeing | {data.seeing}')
-    if data.ap:
-        md.append(f'Aperture | {data.ap} mm')
-    if data.mag:
-        md.append(f'Magnification | {data.mag}x')
-    if data.fov:
-        md.append(f'FOV | {data.fov} \u00b0')
-    md.append('')
 
-    return md
+    def col(d: ObsData) -> List[str]:
+        return [
+            ', '.join(common.pretty_name(d.names)),
+            f'{d.loc}, {d.date}',
+            f'~ {d.nelm}' if d.nelm else '',
+            str(d.seeing) if d.seeing else '',
+            f'{d.ap} mm' if d.ap else '',
+            f'{d.mag}x' if d.mag else '',
+            f'{d.fov} \u00b0' if d.fov else ''
+        ]
+
+    return md_table([data], make_col=col, row_headers=ROWS)
+
+
+def obj_table(data: List[ObjectData]) -> List[str]:
+
+    ROWS = [
+        'Objects' if len(data) > 1 else 'Object',
+        'RightAscension',
+        'Declination'
+    ]
+
+    def col(obj: ObjectData) -> List[str]:
+        return [
+            common.pretty_name(obj.name),
+            obj.ra,
+            obj.decl
+        ]
+
+    return md_table(data=data, make_col=col, row_headers=ROWS)
 
 
 def tag_line(name: str,
@@ -72,9 +112,9 @@ def tag_line(name: str,
     return ' - '.join(tags)
 
 
-def subtitle(title: str) -> str:
-
-    return f'## {title}'
+def subtitle(title: str, level: int = 2) -> str:
+    assert level >= 2
+    return '#'*level + ' ' + title
 
 
 def header(title: str) -> List[str]:
@@ -89,12 +129,16 @@ def header(title: str) -> List[str]:
     ]
 
 
+def note_block(text: str) -> List[str]:
+    return [f'> {n}' for n in text.splitlines()] + ['']
+
+
 def footer(notes: str = '', links: Dict[str, str] = {}) -> List[str]:
 
     md: List[str] = []
 
     if notes:
-        md += [f'> {n}' for n in notes.splitlines()] + ['']
+        md += note_block(notes)
 
     if links:
         md += [subtitle('Links'), ''] + [f'- {common.md_link(k, v)}' for k, v in links.items()]
@@ -122,9 +166,10 @@ def page(title: str,
 def obs_body(title: str,
              names: List[str],
              img: str,
-             table: List[str],
+             obs_tab: List[str],
              text: str,
-             object_data: Dict[str, ObjectData]) -> List[str]:
+             object_data: Dict[str, ObjectData],
+             sketch_notes: str) -> List[str]:
 
     md = [tag_line(n, object_data.get(n, ObjectData())) + '  ' for n in names]
     md += [
@@ -136,9 +181,22 @@ def obs_body(title: str,
     if text:
         md += text.splitlines() + ['']
 
-    md += table
+    md += obs_tab + ['']
 
-    return md + ['']
+    if sketch_notes:
+        md += note_block(sketch_notes)
+
+    obj_tab = obj_table(list(object_data.values()))
+    if obj_tab:
+        md += [
+            subtitle('Object data', level=4),
+            ''
+        ] + obj_tab
+
+    if len(md[-1]) > 0:
+        md.append('')
+
+    return md
 
 
 def log_row(names: Union[str, List[str]], date: str, from_main: bool = False) -> List[str]:
@@ -183,7 +241,7 @@ def index_data(data: Union[List, Dict]) -> List[str]:
     md: List[str] = []
     for k, v in data.items():
         assert isinstance(k, str)
-        md += [f'#### {k}', ''] + index_data(v) + ['']
+        md += [subtitle(k, level=4), ''] + index_data(v) + ['']
 
     return md
 
@@ -201,12 +259,12 @@ def observation_page(obs_data: ObsData,
     md = obs_body(title=title,
                   names=obs_data.names,
                   img=img,
-                  table=o_table,
+                  obs_tab=o_table,
                   text=obs_data.text,
-                  object_data=object_data)
+                  object_data=object_data,
+                  sketch_notes=notes)
     return page(title=title,
                 content=md,
-                notes=notes,
                 links=links)
 
 
