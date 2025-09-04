@@ -22,7 +22,7 @@ class ObsData:
     seeing: int = 0
     ap: int = 0
     mag: int = 0
-    fov: float = 0
+    fov: str = ''
     text: str = ''
     data: Dict[str, str] = field(default_factory=dict)
 

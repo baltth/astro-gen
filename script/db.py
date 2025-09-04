@@ -56,6 +56,8 @@ def observations(root: str) -> List[ObsData]:
         else:
             r['names'] = r['name']
         del r['name']
+        if 'fov' in r.keys():
+            r['fov'] = str(r['fov'])
     return [create(ObsData, d) for d in raw]
 
 

@@ -59,7 +59,7 @@ def index_content(obs_db: Dict, object_db: Dict[str, ObjectData]) -> List[str]:
         # todo
         if 'star' in obj.type:
             return 'Stars'
-        if 'planet' in obj.type.split():
+        if 'planet' in obj.type.split() or 'crater' in obj.type:
             return 'Other'
         return 'Deep space'
 

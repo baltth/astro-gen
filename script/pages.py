@@ -4,6 +4,7 @@ import common
 from datatypes import ObjectData, ObsData, DATA_NOTE
 import project
 
+import re
 from typing import Callable, Dict, List, Union
 
 
@@ -54,6 +55,10 @@ def obs_table(data: ObsData) -> List[str]:
         rows += ['**Other data**'] + custom_rows
 
     def col(d: ObsData) -> List[str]:
+        if len(d.fov) > 0 and re.search(r'\d+\s*$', d.fov.rstrip()):
+            fov = d.fov.rstrip() + '\u00b0'
+        else:
+            fov = d.fov
         col_data = [
             ', '.join(common.pretty_name(d.names)),
             f'{d.loc}, {d.date}',
@@ -61,7 +66,7 @@ def obs_table(data: ObsData) -> List[str]:
             str(d.seeing) if d.seeing else '',
             f'{d.ap} mm' if d.ap else '',
             f'{d.mag}x' if d.mag else '',
-            f'{d.fov}\u00b0' if d.fov else ''
+            fov
         ]
         custom_data = [str(v) for v in d.data.values()]
         if custom_data:
