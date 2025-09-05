@@ -64,7 +64,7 @@ def map_data(data: Dict) -> FetchedData:
     pos = data['position']['equatorial']
     res = FetchedData(name=data['name'],
                       ra=pos['rightAscension']['string'],
-                      decl=pos['declination']['string'],
+                      dec=pos['declination']['string'],
                       constellation=data['position']['constellation']['short'],
                       type=data['type']['name'])
 

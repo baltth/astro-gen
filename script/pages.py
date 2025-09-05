@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import common
-from datatypes import ObjectData, ObsData, DATA_NOTE
+from datatypes import ObjectData, ObsData, DATA_NOTE, get_all_data_of
 import project
 
+from copy import copy
 import re
-from typing import Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Union
 
 
 def emph(s: str) -> str:
@@ -76,31 +77,92 @@ def obs_table(data: ObsData) -> List[str]:
     return md_table([data], make_col=col, row_headers=rows)
 
 
-def obj_table(data: List[ObjectData]) -> List[str]:
+def mark_fetched(data: str) -> str:
+    if data:
+        return data + ' ' + DATA_NOTE
 
-    custom_keys = dict.fromkeys(k for d in data for k in d.data.keys()).keys()
 
-    rows = [
+def get_annotated_data(obj: ObjectData) -> Dict[str, Dict[str, Any]]:
+
+    obj_data = get_all_data_of(obj)
+    for od in obj_data.values():
+        for k, v in od.items():
+            if k in od.get('fetched_keys', []):
+                od[k] = mark_fetched(v)
+
+    return obj_data
+
+
+def merge_general_data(data: Dict[str, Dict[str, Any]], name: str) -> Dict[str, Dict[str, Any]]:
+
+    res = copy(data)
+
+    if '_' in res.keys():
+        if len(res) > 1:
+            if name in res.keys():
+                merge_to = name
+            else:
+                merge_to = list(res.keys())[0]
+            for k, v in data['_'].items():
+                res[merge_to][k] = v
+        else:
+            res[name] = res['_']
+        del res['_']
+
+    return res
+
+
+def preprocess_data(obj: ObjectData) -> Dict[str, Dict[str, Any]]:
+
+    data = merge_general_data(get_annotated_data(obj), obj.name)
+
+    for k, v in data.items():
+        v['pretty_name'] = common.pretty_name(k)
+        if 'name' in v.keys():
+            if v['name'] != k:
+                v['fetched_name'] = v['name']
+            del v['name']
+        if 'fetched_keys' in v.keys():
+            del v['fetched_keys']
+
+    return data
+
+
+def obj_table(objects: List[ObjectData]) -> List[str]:
+
+    data = {}
+    for d in objects:
+        data.update(preprocess_data(d))
+
+    if not data:
+        return []
+
+    all_keys = dict.fromkeys(k for d in data.values() for k in d.keys())
+    all_keys = list(all_keys.keys())
+
+    PRIO_ROWS = [
+        'pretty_name',
+        'fetched_name',
+        'desc',
+        'ra',
+        'dec'
+    ]
+    rows = PRIO_ROWS + [k for k in all_keys if k not in PRIO_ROWS]
+
+    FANCY_PRIO_ROWS = [
         'Objects' if len(data) > 1 else 'Object',
-        'Type',
+        'Fetched as',
+        'Desc.',
         'RA',
         'Dec'
-    ] + list(custom_keys)
+    ]
+    rendered_rows = [r.replace('_', ' ').capitalize() for r in rows]
+    rendered_rows = FANCY_PRIO_ROWS + rendered_rows[len(FANCY_PRIO_ROWS):]
 
-    def col(obj: ObjectData) -> List[str]:
-        d = [
-            common.pretty_name(obj.name),
-            obj.desc,
-            obj.ra,
-            obj.decl
-        ]
+    def col(data: Dict) -> List[str]:
+        return [str(data.get(k, '')) for k in rows]
 
-        for k in custom_keys:
-            d.append(str(obj.data.get(k, '')))
-
-        return d
-
-    return md_table(data=data, make_col=col, row_headers=rows)
+    return md_table(data=list(data.values()), make_col=col, row_headers=rendered_rows)
 
 
 def tag_line(name: str,

@@ -69,9 +69,23 @@ def objects_raw(root: str) -> Dict[str, Dict]:
 
 def objects(root: str) -> Dict[str, ObjectData]:
 
+    def _map_of_obj_data(src: Dict[str, Dict]) -> Dict[str, FetchedData]:
+        res = {}
+        for k, v in src.items():
+            d: FetchedData = create(FetchedData, v)
+            if not d.name:
+                d.name = k
+            res[k] = d
+        return res
+
     raw = objects_raw(root)
     for k, v in raw.items():
         v['name'] = k
+        if 'components' in v.keys():
+            v['components'] = _map_of_obj_data(v['components'])
+        if 'fetched' in v.keys():
+            v['fetched'] = _map_of_obj_data(v['fetched'])
+
     return {k: create(ObjectData, v) for k, v in raw.items()}
 
 
@@ -169,22 +183,20 @@ def _refresh_with_fetched(entry: Dict, fetched: FetchedData) -> Dict:
         e['constellation'] = fetched.constellation
     if not e['type']:
         e['type'] = fetched.type.lower()
-    e['ra'] = mark_fetched(fetched.ra)
-    e['decl'] = mark_fetched(fetched.decl)
 
-    if not e.get('desc', '') and not fetched.spectral_class and fetched.subtype:
+    if not e.get('desc', '') and fetched.subtype:
         if fetched.subtype != fetched.type:
-            e['desc'] = mark_fetched(fetched.subtype.lower() + ' ' + fetched.type.lower())
+            e['desc'] = mark_fetched(fetched.subtype + ' ' + fetched.type).capitalize()
 
     f_dict = asdict(fetched)
-    keys_to_del = ['name', 'constellation', 'ra', 'decl']
+    keys_to_del = ['constellation']
     if not fetched.spectral_class:
         keys_to_del.append('spectral_class')
 
     f_dict = {k: v for k, v in f_dict.items() if k not in keys_to_del}
-    if '_fetched' not in e.keys():
-        e['_fetched'] = {}
-    e['_fetched'][fetched.name] = f_dict
+    if 'fetched' not in e.keys():
+        e['fetched'] = {}
+    e['fetched'][fetched.name] = f_dict
 
     return e
 
