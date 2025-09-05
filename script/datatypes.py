@@ -29,29 +29,24 @@ class ObsData:
 
 
 @dataclass
-class ObjectBase:
+class ObjectData:
     name: str = ''
     constellation: str = ''
     type: str = ''
-
-
-@dataclass
-class FetchedData(ObjectBase):
     subtype: str = ''
+    desc: str = ''
     ra: str = ''
     dec: str = ''
+    mag: str = ''
     spectral_class: str = ''
-    alias: List[str] = field(default_factory=list)
+    aka: List[str] = field(default_factory=list)
     data: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
-class ObjectData(ObjectBase):
-    desc: str = ''
-    aka: List[str] = field(default_factory=list)
-    data: Dict[str, str] = field(default_factory=dict)
-    components: Dict[str, FetchedData] = field(default_factory=dict)
-    fetched: Dict[str, FetchedData] = field(default_factory=dict)
+class Object(ObjectData):
+    components: Dict[str, ObjectData] = field(default_factory=dict)
+    fetched: Dict[str, ObjectData] = field(default_factory=dict)
 
 
 def create(cls: Type, d: Dict) -> Any:
@@ -60,49 +55,71 @@ def create(cls: Type, d: Dict) -> Any:
     return cls(**filt)
 
 
-DATA_NOTE = '\u2020'    # 'dagger': †
-
-
-def get_all_data_of(obj: ObjectData) -> Dict[str, Dict[str, str]]:
+def get_all_data_of(obj: Object) -> Dict[str, Dict[str, str]]:
+    """
+    Create a collection of the component data and fetched data
+    with combining associated data sets.    
+    """
 
     def flat_data(o: ObjectData) -> Dict:
+        """
+        ObjectData as dictionary with
+        - 'data' moved to root
+        - 'aka' list removed
+        - all fields as string
+        """
         d = asdict(o)
         if 'data' in d.keys():
-            if isinstance(d['data'], dict):
-                d.update(d['data'])
-                del d['data']
-            else:
-                assert False
-        return d
+            d.update(d['data'])
+            del d['data']
+        if 'aka' in d.keys():
+            del d['aka']
+        return {k: str(v) for k, v in d.items()}
 
     added_fetched = set()
     components = deepcopy(obj.components)
+
     res: Dict[str, Dict[str, str]] = {}
+
+    # Collect data from the main object
+    OD_FIELDS = [f.name for f in fields(ObjectData)]
+    OBJ_FIELDS = [f.name for f in fields(Object)]
+    main_obj = {k: v for k, v in flat_data(obj).items() if k in OD_FIELDS or k not in OBJ_FIELDS}
+
+    # For all components: collect with associated fetched data merged
     for c_key, c in components.items():
 
-        c_dict = {k: str(v) for k, v in flat_data(c).items()}
+        # create data set
+        c_dict = flat_data(c)
         c_dict['fetched_keys'] = []
+
+        # merge associated fetched data on demand
         if c.name in obj.fetched.keys():
+
             added_fetched.add(c.name)
             f_dict = flat_data(obj.fetched[c.name])
+
+            # merge fetched to component
             for k, v in f_dict.items():
                 if v and not c_dict.get(k, ''):
-                    c_dict[k] = str(v)
+                    c_dict[k] = v
+                    # register new keys from fetched
                     c_dict['fetched_keys'].append(k)
+
+        # Store the component data
         res[c_key] = c_dict
 
+    # For the remaining unused fetched data:
     for f_key, f in obj.fetched.items():
         if f_key not in added_fetched:
-            res[f_key] = {k: str(v) for k, v in flat_data(f).items()}
-            res[f_key]['fetched_keys'] = list(flat_data(f).keys())
+            # Store fetched data
+            f_dict = flat_data(f)
 
-    for d in res.values():
-        if 'alias' in d.keys():
-            del d['alias']
-        if 'alias' in d['fetched_keys']:
-            d['fetched_keys'].remove('alias')
+            # register keys fof fetched
+            f_dict['fetched_keys'] = list(f_dict.keys())
+            res[f_key] = f_dict
 
-    if obj.data:
-        res['_'] = deepcopy(obj.data)
+    if main_obj:
+        res['_'] = main_obj
 
     return res

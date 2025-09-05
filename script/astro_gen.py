@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import common
-from datatypes import FetchedData
+from datatypes import ObjectData
 import db
 import fetch
 import proc_image
@@ -63,7 +63,7 @@ def add_observation(root: str, name: str, img_date: datetime):
                date=img_date.date().isoformat())
 
 
-def fetch_astronomyapi_on_demand(name: str) -> Dict[str, FetchedData]:
+def fetch_astronomyapi_on_demand(name: str) -> Dict[str, ObjectData]:
 
     app_id, secret = fetch.astronomyapi_access()
     if not app_id:
