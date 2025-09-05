@@ -18,6 +18,13 @@ and its [source](https://github.com/baltth/astro).
   - `natsort`
   - `pillow`
   - `pyhon-slugify`
+  - `requests`
   - `ruamel.yaml==0.18.15`
+
+To fetch data from <astronomyapi.com>:
+- register your 'application'
+- set the credentials as environment variables:
+  - `ASTRONOMYAPI_ID`
+  - `ASTRONOMYAPI_SECRET`
 
 ...

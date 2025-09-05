@@ -2,7 +2,10 @@
 
 import common
 import project
+from datatypes import ObsData, ObjectData, FetchedData, SketchData, create, DATA_NOTE
 
+from copy import deepcopy
+from dataclasses import asdict
 from natsort import natsorted
 from pathlib import Path
 from ruamel.yaml import YAML, comments
@@ -26,22 +29,64 @@ def load(db: str) -> YamlDict:
     return data
 
 
-def sketches(root: str) -> List:
+def sketches_raw(root: str) -> List[Dict]:
 
     sketch_db = load(project.sketch_db(root))
     return list(sketch_db['sketches'])
 
 
-def observations(root: str) -> List:
+def sketches(root: str) -> List[SketchData]:
+
+    raw = sketches_raw(root)
+    return [create(SketchData, d) for d in raw]
+
+
+def observations_raw(root: str) -> List[Dict]:
 
     obs_db = load(project.obs_db(root))
     return list(obs_db['observations'])
 
 
-def objects(root: str) -> Dict:
+def observations(root: str) -> List[ObsData]:
+
+    raw = observations_raw(root)
+    for r in raw:
+        if isinstance(r['name'], str):
+            r['names'] = [r['name']]
+        else:
+            r['names'] = r['name']
+        del r['name']
+        if 'fov' in r.keys():
+            r['fov'] = str(r['fov'])
+    return [create(ObsData, d) for d in raw]
+
+
+def objects_raw(root: str) -> Dict[str, Dict]:
 
     obj_db = load(project.object_db(root))
     return dict(obj_db['objects'])
+
+
+def objects(root: str) -> Dict[str, ObjectData]:
+
+    def _map_of_obj_data(src: Dict[str, Dict]) -> Dict[str, FetchedData]:
+        res = {}
+        for k, v in src.items():
+            d: FetchedData = create(FetchedData, v)
+            if not d.name:
+                d.name = k
+            res[k] = d
+        return res
+
+    raw = objects_raw(root)
+    for k, v in raw.items():
+        v['name'] = k
+        if 'components' in v.keys():
+            v['components'] = _map_of_obj_data(v['components'])
+        if 'fetched' in v.keys():
+            v['fetched'] = _map_of_obj_data(v['fetched'])
+
+    return {k: create(ObjectData, v) for k, v in raw.items()}
 
 
 def save(db: str, data: Dict):
@@ -97,7 +142,7 @@ def add_obs(root: str,
             name: str,
             date: str):
 
-    names = name.replace(', ', ',').split(',')
+    names = common.names_to_list(name)
     entry_name = names if len(names) > 1 else name
 
     date_in_file = date.replace('-', '')
@@ -127,36 +172,89 @@ def add_obs(root: str,
     save(project.obs_db(root), odb)
 
 
-def add_object(obj_dict: YamlDict, name: str):
+def _refresh_with_fetched(entry: Dict, fetched: FetchedData) -> Dict:
+
+    def mark_fetched(data: str) -> str:
+        if data:
+            return data + ' ' + DATA_NOTE
+
+    e = deepcopy(entry)
+    if not e['constellation']:
+        e['constellation'] = fetched.constellation
+    if not e['type']:
+        e['type'] = fetched.type.lower()
+
+    if not e.get('desc', '') and fetched.subtype:
+        if fetched.subtype != fetched.type:
+            e['desc'] = mark_fetched(fetched.subtype + ' ' + fetched.type).capitalize()
+
+    f_dict = asdict(fetched)
+    keys_to_del = ['constellation']
+    if not fetched.spectral_class:
+        keys_to_del.append('spectral_class')
+
+    f_dict = {k: v for k, v in f_dict.items() if k not in keys_to_del}
+    if 'fetched' not in e.keys():
+        e['fetched'] = {}
+    e['fetched'][fetched.name] = f_dict
+
+    return e
+
+
+def add_object(obj_dict: YamlDict,
+               name: str,
+               fetched: FetchedData,
+               refresh: bool = False) -> bool:
+
+    def new_entry() -> Dict:
+        return {
+            'name': name,
+            'constellation': common.get_constellation(name),
+            'type': ''
+        }
+
+    print(f'Adding {name} ...')
 
     db_names = list(obj_dict.keys())
     if name in db_names:
-        print(f'Skipping {name}, already present')
-        return
+        if refresh:
+            entry = obj_dict[name]
+            del obj_dict[name]
+            db_names.remove(name)
+        else:
+            print(f'Skipping {name}, already present')
+            return False
+    else:
+        entry = new_entry()
 
     db_names.append(name)
     db_names = natsorted(db_names)
     pos = db_names.index(name)
 
-    entry = {
-        'name': name,
-        'constellation': common.get_constellation(name),
-        'type': ''
-    }
+    fetched_valid = bool(fetched.name)
+    if fetched_valid:
+        entry = _refresh_with_fetched(entry, fetched)
 
     obj_dict.insert(pos, name, entry)
     if pos < (len(obj_dict) - 1):
         obj_dict.yaml_set_comment_before_after_key(db_names[pos + 1], before='')
 
+    return True
+
 
 def add_objects(root: str,
-                name: str):
+                name: str,
+                fetched: Dict[str, FetchedData] = {},
+                refresh: bool = False):
 
     odb = load(project.object_db(root))
     obj_dict: YamlDict = odb['objects']
 
     names = name.replace(', ', ',').split(',')
+    added = False
     for n in names:
-        add_object(obj_dict, n)
+        f = fetched.get(n, FetchedData())
+        added = add_object(obj_dict, n, f, refresh=refresh) or added
 
-    save(project.object_db(root), odb)
+    if added:
+        save(project.object_db(root), odb)

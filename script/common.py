@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import constellations
+from datatypes import ObjectData
 
 from datetime import datetime, timedelta
 import re
@@ -48,6 +49,10 @@ def pretty_name(name: Union[str, List[str]]) -> Union[str, List[str]]:
     return name
 
 
+def names_to_list(names: str) -> List[str]:
+    return names.replace(', ', ',').split(',')
+
+
 def traditional_name(name: Union[str, List[str]]) -> Union[str, List[str]]:
 
     if isinstance(name, list):
@@ -82,14 +87,14 @@ def pretty_name_str(name: Union[str, List[str]]) -> str:
     return pn
 
 
-def short_desc(obj_data: Dict) -> str:
+def short_desc(obj_data: ObjectData) -> str:
     if not obj_data:
         return ''
 
-    if constellations.is_constellation(obj_data['constellation']):
-        return f'{obj_data['type']} in {constellations.name(obj_data['constellation'])}'
+    if constellations.is_constellation(obj_data.constellation):
+        return f'{obj_data.type} in {constellations.name(obj_data.constellation)}'
 
-    return f'{obj_data['type']} in {obj_data['constellation']}'
+    return f'{obj_data.type} in {obj_data.constellation}'
 
 
 def md_link(text: str, url: str, desc: str = '') -> str:

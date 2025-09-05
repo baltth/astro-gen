@@ -1,64 +1,172 @@
 #!/usr/bin/env python3
 
 import common
+from datatypes import ObjectData, ObsData, DATA_NOTE, get_all_data_of
 import project
 
-from dataclasses import dataclass
-from typing import Dict, List, Union
+from copy import copy
+import re
+from typing import Any, Callable, Dict, List, Union
 
 
 def emph(s: str) -> str:
     return f'_{s}_'
 
 
-def short_desc(obj_data: Dict) -> str:
-    return f'{obj_data['type']} in '
+def md_table(data: List, make_col: Callable, row_headers: List[str]) -> List[str]:
 
+    def empty_data(r: List[str]) -> bool:
+        return not any(r[1:])
 
-@dataclass
-class ObsData:
-    names: List[str]
-    date: str
-    loc: str
-    nelm: float
-    seeing: int
-    ap: int
-    mag: int
-    fov: float
+    obj_data = [make_col(d) for d in data]
+
+    cols = [row_headers] + [d for d in obj_data if not empty_data(d)]  # drop empty columns
+    if len(cols) == 1:
+        # Only the row header remains
+        return []
+
+    rows = [list(r) for r in zip(*cols)]
+
+    table_data = [r for r in rows if not empty_data(r)]  # drop empty rows
+
+    assert table_data
+    if len(table_data) == 1:
+        # Only the col header remains
+        return []
+
+    table = [' | '.join(row) for row in table_data]
+    headline = '|'.join(['-'] * len(cols))
+    return [table[0], headline] + table[1:] + ['']
 
 
 def obs_table(data: ObsData) -> List[str]:
 
-    names_cell = ', '.join(common.pretty_name(data.names))
-
-    md: List[str] = []
-
-    if len(data.names) > 1:
-        md += [f'Objects | {names_cell}']
-    else:
-        md += [f'Object | {names_cell}']
-
-    md += [
-        '-|-',
-        f'Observed at | {data.loc}, {data.date}',
+    rows = [
+        'Objects' if len(data.names) > 1 else 'Object',
+        'Observed at',
+        'NELM',
+        'Seeing',
+        'Aperture',
+        'Magnification',
+        'FOV'
     ]
-    if data.nelm:
-        md.append(f'NELM | ~ {data.nelm}')
-    if data.seeing:
-        md.append(f'Seeing | {data.seeing}')
-    if data.ap:
-        md.append(f'Aperture | {data.ap} mm')
-    if data.mag:
-        md.append(f'Magnification | {data.mag}x')
-    if data.fov:
-        md.append(f'FOV | {data.fov} \u00b0')
-    md.append('')
 
-    return md
+    custom_rows = list(data.data.keys())
+    if custom_rows:
+        rows += ['**Other data**'] + custom_rows
+
+    def col(d: ObsData) -> List[str]:
+        if len(d.fov) > 0 and re.search(r'\d+\s*$', d.fov.rstrip()):
+            fov = d.fov.rstrip() + '\u00b0'
+        else:
+            fov = d.fov
+        col_data = [
+            ', '.join(common.pretty_name(d.names)),
+            f'{d.loc}, {d.date}',
+            f'~ {d.nelm}' if d.nelm else '',
+            str(d.seeing) if d.seeing else '',
+            f'{d.ap} mm' if d.ap else '',
+            f'{d.mag}x' if d.mag else '',
+            fov
+        ]
+        custom_data = [str(v) for v in d.data.values()]
+        if custom_data:
+            col_data += [' '] + custom_data
+        return col_data
+
+    return md_table([data], make_col=col, row_headers=rows)
+
+
+def mark_fetched(data: str) -> str:
+    if data:
+        return data + ' ' + DATA_NOTE
+
+
+def get_annotated_data(obj: ObjectData) -> Dict[str, Dict[str, Any]]:
+
+    obj_data = get_all_data_of(obj)
+    for od in obj_data.values():
+        for k, v in od.items():
+            if k in od.get('fetched_keys', []):
+                od[k] = mark_fetched(v)
+
+    return obj_data
+
+
+def merge_general_data(data: Dict[str, Dict[str, Any]], name: str) -> Dict[str, Dict[str, Any]]:
+
+    res = copy(data)
+
+    if '_' in res.keys():
+        if len(res) > 1:
+            if name in res.keys():
+                merge_to = name
+            else:
+                merge_to = list(res.keys())[0]
+            for k, v in data['_'].items():
+                res[merge_to][k] = v
+        else:
+            res[name] = res['_']
+        del res['_']
+
+    return res
+
+
+def preprocess_data(obj: ObjectData) -> Dict[str, Dict[str, Any]]:
+
+    data = merge_general_data(get_annotated_data(obj), obj.name)
+
+    for k, v in data.items():
+        v['pretty_name'] = common.pretty_name(k)
+        if 'name' in v.keys():
+            if v['name'] != k:
+                v['fetched_name'] = v['name']
+            del v['name']
+        if 'fetched_keys' in v.keys():
+            del v['fetched_keys']
+
+    return data
+
+
+def obj_table(objects: List[ObjectData]) -> List[str]:
+
+    data = {}
+    for d in objects:
+        data.update(preprocess_data(d))
+
+    if not data:
+        return []
+
+    all_keys = dict.fromkeys(k for d in data.values() for k in d.keys())
+    all_keys = list(all_keys.keys())
+
+    PRIO_ROWS = [
+        'pretty_name',
+        'fetched_name',
+        'desc',
+        'ra',
+        'dec'
+    ]
+    rows = PRIO_ROWS + [k for k in all_keys if k not in PRIO_ROWS]
+
+    FANCY_PRIO_ROWS = [
+        'Objects' if len(data) > 1 else 'Object',
+        'Fetched as',
+        'Desc.',
+        'RA',
+        'Dec'
+    ]
+    rendered_rows = [r.replace('_', ' ').capitalize() for r in rows]
+    rendered_rows = FANCY_PRIO_ROWS + rendered_rows[len(FANCY_PRIO_ROWS):]
+
+    def col(data: Dict) -> List[str]:
+        return [str(data.get(k, '')) for k in rows]
+
+    return md_table(data=list(data.values()), make_col=col, row_headers=rendered_rows)
 
 
 def tag_line(name: str,
-             object_data: Dict) -> str:
+             object_data: ObjectData) -> str:
 
     def name_tags(n: str) -> List[str]:
         tags: List[str] = []
@@ -75,9 +183,7 @@ def tag_line(name: str,
         return tags
 
     tags = [emph(t) for t in name_tags(name)]
-
-    alias = object_data.get('aka', [])
-    tags += [emph(a) for a in alias]
+    tags += [emph(a) for a in object_data.aka]
 
     sd = common.short_desc(object_data)
     if sd:
@@ -90,9 +196,9 @@ def tag_line(name: str,
     return ' - '.join(tags)
 
 
-def subtitle(title: str) -> str:
-
-    return f'## {title}'
+def subtitle(title: str, level: int = 2) -> str:
+    assert level >= 2
+    return '#'*level + ' ' + title
 
 
 def header(title: str) -> List[str]:
@@ -107,12 +213,16 @@ def header(title: str) -> List[str]:
     ]
 
 
+def note_block(text: str) -> List[str]:
+    return [f'> {n}' for n in text.splitlines()] + ['']
+
+
 def footer(notes: str = '', links: Dict[str, str] = {}) -> List[str]:
 
     md: List[str] = []
 
     if notes:
-        md += [f'> {n}' for n in notes.splitlines()] + ['']
+        md += note_block(notes)
 
     if links:
         md += [subtitle('Links'), ''] + [f'- {common.md_link(k, v)}' for k, v in links.items()]
@@ -140,11 +250,12 @@ def page(title: str,
 def obs_body(title: str,
              names: List[str],
              img: str,
-             table: List[str],
+             obs_tab: List[str],
              text: str,
-             object_data: Dict) -> List[str]:
+             object_data: Dict[str, ObjectData],
+             sketch_notes: str) -> List[str]:
 
-    md = [tag_line(n, object_data.get(n, {})) + '  ' for n in names]
+    md = [tag_line(n, object_data.get(n, ObjectData())) + '  ' for n in names]
     md += [
         '',
         common.md_image(title, f'{img}'),
@@ -154,9 +265,28 @@ def obs_body(title: str,
     if text:
         md += text.splitlines() + ['']
 
-    md += table
+    md += obs_tab + ['']
 
-    return md + ['']
+    if sketch_notes:
+        md += note_block(sketch_notes)
+
+    obj_tab = obj_table(list(object_data.values()))
+    if obj_tab:
+        md += [
+            subtitle('Object data', level=4),
+            ''
+        ] + obj_tab
+
+        if any(f' {DATA_NOTE}' in row for row in obj_tab):
+            md += [
+                f'{DATA_NOTE} fetched from [astronomyapi.com](http://astronomyapi.com)',
+                ''
+            ]
+
+    if len(md[-1]) > 0:
+        md.append('')
+
+    return md
 
 
 def log_row(names: Union[str, List[str]], date: str, from_main: bool = False) -> List[str]:
@@ -170,7 +300,7 @@ def log_row(names: Union[str, List[str]], date: str, from_main: bool = False) ->
 def index_row(obj_name: str,
               all_names: Union[str, List[str]],
               date: str,
-              obj_data: Dict) -> List[str]:
+              obj_data: ObjectData) -> List[str]:
 
     pretty_name: str = common.pretty_name(obj_name)
     url = project.obs_page_url(all_names, date)
@@ -201,31 +331,30 @@ def index_data(data: Union[List, Dict]) -> List[str]:
     md: List[str] = []
     for k, v in data.items():
         assert isinstance(k, str)
-        md += [f'#### {k}', ''] + index_data(v) + ['']
+        md += [subtitle(k, level=4), ''] + index_data(v) + ['']
 
     return md
 
 
-def observation_page(data: ObsData,
+def observation_page(obs_data: ObsData,
                      img: str,
-                     text: str,
                      notes: str = '',
                      links: Dict[str, str] = {},
-                     object_data: Dict = {}) -> str:
+                     object_data: Dict[str, ObjectData] = {}) -> str:
 
-    title = common.pretty_name_str(data.names)
+    title = common.pretty_name_str(obs_data.names)
 
-    o_table = obs_table(data)
+    o_table = obs_table(obs_data)
 
     md = obs_body(title=title,
-                  names=data.names,
+                  names=obs_data.names,
                   img=img,
-                  table=o_table,
-                  text=text,
-                  object_data=object_data)
+                  obs_tab=o_table,
+                  text=obs_data.text,
+                  object_data=object_data,
+                  sketch_notes=notes)
     return page(title=title,
                 content=md,
-                notes=notes,
                 links=links)
 
 
