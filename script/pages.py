@@ -205,6 +205,14 @@ def obj_table(objects: List[Object]) -> List[str]:
 
     tab = md_table(data=list(data.values()), make_col=col, row_headers=rendered_rows)
 
+    if len(tab) > 0:
+        assert len(tab) >= 4
+        assert tab[-1] == ''
+
+        # Skip table when there's only name + desc
+        if len(tab) == 4:
+            return []
+
     if any(DATA_NOTE_POSTFIX in row for row in tab):
         tab += [
             f'{DATA_NOTE} fetched from [astronomyapi.com](http://astronomyapi.com)',
