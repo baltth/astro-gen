@@ -39,7 +39,7 @@ def md_table(data: List, make_col: Callable, row_headers: List[str]) -> List[str
 
 def obs_table(data: ObsData) -> List[str]:
 
-    ROWS = [
+    rows = [
         'Objects' if len(data.names) > 1 else 'Object',
         'Observed at',
         'NELM',
@@ -49,30 +49,38 @@ def obs_table(data: ObsData) -> List[str]:
         'FOV'
     ]
 
+    custom_rows = list(data.data.keys())
+    if custom_rows:
+        rows += ['**Other data**'] + custom_rows
+
     def col(d: ObsData) -> List[str]:
-        return [
+        col_data = [
             ', '.join(common.pretty_name(d.names)),
             f'{d.loc}, {d.date}',
             f'~ {d.nelm}' if d.nelm else '',
             str(d.seeing) if d.seeing else '',
             f'{d.ap} mm' if d.ap else '',
             f'{d.mag}x' if d.mag else '',
-            f'{d.fov} \u00b0' if d.fov else ''
+            f'{d.fov}\u00b0' if d.fov else ''
         ]
+        custom_data = [str(v) for v in d.data.values()]
+        if custom_data:
+            col_data += [' '] + custom_data
+        return col_data
 
-    return md_table([data], make_col=col, row_headers=ROWS)
+    return md_table([data], make_col=col, row_headers=rows)
 
 
 def obj_table(data: List[ObjectData]) -> List[str]:
 
-    ROWS = [
+    custom_keys = dict.fromkeys(k for d in data for k in d.data.keys()).keys()
+
+    rows = [
         'Objects' if len(data) > 1 else 'Object',
         'Type',
         'RA',
         'Dec'
-    ]
-
-    custom_keys = dict.fromkeys(k for d in data for k in d.data.keys()).keys()
+    ] + list(custom_keys)
 
     def col(obj: ObjectData) -> List[str]:
         d = [
@@ -87,7 +95,7 @@ def obj_table(data: List[ObjectData]) -> List[str]:
 
         return d
 
-    return md_table(data=data, make_col=col, row_headers=ROWS+list(custom_keys))
+    return md_table(data=data, make_col=col, row_headers=rows)
 
 
 def tag_line(name: str,

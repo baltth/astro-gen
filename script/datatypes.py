@@ -24,6 +24,7 @@ class ObsData:
     mag: int = 0
     fov: float = 0
     text: str = ''
+    data: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
