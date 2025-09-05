@@ -2,7 +2,7 @@
 
 import common
 import project
-from datatypes import ObsData, ObjectData, FetchedData, SketchData, create, DATA_NOTE
+from datatypes import ObsData, Object, ObjectData, SketchData, create
 
 from copy import deepcopy
 from dataclasses import asdict
@@ -67,12 +67,12 @@ def objects_raw(root: str) -> Dict[str, Dict]:
     return dict(obj_db['objects'])
 
 
-def objects(root: str) -> Dict[str, ObjectData]:
+def objects(root: str) -> Dict[str, Object]:
 
-    def _map_of_obj_data(src: Dict[str, Dict]) -> Dict[str, FetchedData]:
+    def _map_of_obj_data(src: Dict[str, Dict]) -> Dict[str, ObjectData]:
         res = {}
         for k, v in src.items():
-            d: FetchedData = create(FetchedData, v)
+            d: ObjectData = create(ObjectData, v)
             if not d.name:
                 d.name = k
             res[k] = d
@@ -86,7 +86,7 @@ def objects(root: str) -> Dict[str, ObjectData]:
         if 'fetched' in v.keys():
             v['fetched'] = _map_of_obj_data(v['fetched'])
 
-    return {k: create(ObjectData, v) for k, v in raw.items()}
+    return {k: create(Object, v) for k, v in raw.items()}
 
 
 def save(db: str, data: Dict):
@@ -172,11 +172,7 @@ def add_obs(root: str,
     save(project.obs_db(root), odb)
 
 
-def _refresh_with_fetched(entry: Dict, fetched: FetchedData) -> Dict:
-
-    def mark_fetched(data: str) -> str:
-        if data:
-            return data + ' ' + DATA_NOTE
+def _refresh_with_fetched(entry: Dict, fetched: ObjectData) -> Dict:
 
     e = deepcopy(entry)
     if not e['constellation']:
@@ -184,14 +180,14 @@ def _refresh_with_fetched(entry: Dict, fetched: FetchedData) -> Dict:
     if not e['type']:
         e['type'] = fetched.type.lower()
 
-    if not e.get('desc', '') and fetched.subtype:
-        if fetched.subtype != fetched.type:
-            e['desc'] = mark_fetched(fetched.subtype + ' ' + fetched.type).capitalize()
-
     f_dict = asdict(fetched)
-    keys_to_del = ['constellation']
+    keys_to_del = ['constellation', 'data']
+    if not fetched.desc:
+        keys_to_del.append('decs')
     if not fetched.spectral_class:
         keys_to_del.append('spectral_class')
+    if not fetched.mag:
+        keys_to_del.append('mag')
 
     f_dict = {k: v for k, v in f_dict.items() if k not in keys_to_del}
     if 'fetched' not in e.keys():
@@ -203,12 +199,11 @@ def _refresh_with_fetched(entry: Dict, fetched: FetchedData) -> Dict:
 
 def add_object(obj_dict: YamlDict,
                name: str,
-               fetched: FetchedData,
+               fetched: ObjectData,
                refresh: bool = False) -> bool:
 
     def new_entry() -> Dict:
         return {
-            'name': name,
             'constellation': common.get_constellation(name),
             'type': ''
         }
@@ -244,7 +239,7 @@ def add_object(obj_dict: YamlDict,
 
 def add_objects(root: str,
                 name: str,
-                fetched: Dict[str, FetchedData] = {},
+                fetched: Dict[str, ObjectData] = {},
                 refresh: bool = False):
 
     odb = load(project.object_db(root))
@@ -253,7 +248,7 @@ def add_objects(root: str,
     names = name.replace(', ', ',').split(',')
     added = False
     for n in names:
-        f = fetched.get(n, FetchedData())
+        f = fetched.get(n, ObjectData())
         added = add_object(obj_dict, n, f, refresh=refresh) or added
 
     if added:

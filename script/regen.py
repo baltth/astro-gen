@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import common
-from datatypes import ObsData, ObjectData, SketchData
+from datatypes import ObsData, Object, SketchData
 import db
 import index
 import pages
@@ -35,7 +35,7 @@ def sketch_of_obs(db: List[SketchData], obs: ObsData) -> SketchData:
     return res[0]
 
 
-def object_data(object_db: Dict[str, ObjectData], names: Union[str, List[str]]) -> Dict[str, ObjectData]:
+def object_data(object_db: Dict[str, Object], names: Union[str, List[str]]) -> Dict[str, Object]:
 
     if isinstance(names, str):
         return object_data(object_db, [names])
@@ -60,7 +60,7 @@ def obs_page_name(obs: ObsData) -> str:
     return common.obs_page_name(obs.names, common.obs_day(obs.date))
 
 
-def generate_obs(obs: ObsData, sketch_db: List[SketchData], object_db: Dict[str, ObjectData]):
+def generate_obs(obs: ObsData, sketch_db: List[SketchData], object_db: Dict[str, Object]):
 
     img = project.image_url(obs.img)
 
@@ -95,7 +95,7 @@ def generate_obs_log(obs_db: List[ObsData]):
     write_file('pages', 'log.md', content)
 
 
-def generate_index(obs_db: List[ObsData], object_db: Dict[str, ObjectData]):
+def generate_index(obs_db: List[ObsData], object_db: Dict[str, Object]):
 
     content = pages.page(title='Index',
                          content=index.index_content(obs_db=obs_db, object_db=object_db))
@@ -146,7 +146,7 @@ def generate_main(obs_db: List[ObsData]):
     write_file('', 'index.md', pages.join(content))
 
 
-def regen(obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[str, ObjectData]):
+def regen(obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[str, Object]):
 
     print('Generating ...')
 

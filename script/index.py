@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import common
-from datatypes import ObsData, ObjectData
+from datatypes import ObsData, Object
 import constellations
 import pages
 
@@ -11,7 +11,7 @@ from operator import itemgetter
 from typing import Callable, Dict, List
 
 
-def raw_data(obs_db: List[ObsData], object_db: Dict[str, ObjectData]) -> List:
+def raw_data(obs_db: List[ObsData], object_db: Dict[str, Object]) -> List:
 
     data = {}
 
@@ -51,11 +51,11 @@ def subpage(title: str, content: List[str]) -> List[str]:
     return [pages.subtitle(title), ''] + content + ['']
 
 
-def index_content(obs_db: Dict, object_db: Dict[str, ObjectData]) -> List[str]:
+def index_content(obs_db: Dict, object_db: Dict[str, Object]) -> List[str]:
 
     raw = raw_data(obs_db, object_db)
 
-    def by_type(obj: ObjectData) -> str:
+    def by_type(obj: Object) -> str:
         # todo
         if 'star' in obj.type:
             return 'Stars'
@@ -63,7 +63,7 @@ def index_content(obs_db: Dict, object_db: Dict[str, ObjectData]) -> List[str]:
             return 'Other'
         return 'Deep space'
 
-    def by_constellation(obj: ObjectData) -> str:
+    def by_constellation(obj: Object) -> str:
         if constellations.is_constellation(obj.constellation):
             return constellations.name(obj.constellation)
         return 'Other'

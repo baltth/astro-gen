@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from db import add_objects
-from datatypes import FetchedData
+from datatypes import ObjectData
 
 import argparse
 import base64
@@ -59,28 +59,28 @@ def astronomyapi_search(name: str,
     return None
 
 
-def map_data(data: Dict) -> FetchedData:
+def map_data(data: Dict) -> ObjectData:
 
     pos = data['position']['equatorial']
-    res = FetchedData(name=data['name'],
-                      ra=pos['rightAscension']['string'],
-                      dec=pos['declination']['string'],
-                      constellation=data['position']['constellation']['short'],
-                      type=data['type']['name'])
+    res = ObjectData(name=data['name'],
+                     ra=pos['rightAscension']['string'],
+                     dec=pos['declination']['string'],
+                     constellation=data['position']['constellation']['short'],
+                     type=data['type']['name'])
 
-    res.subtype = data['subType']['name']
+    res.subtype = data['subType']['name'] or ''
     if res.type.lower().endswith('star'):
         res.spectral_class = data['subType']['id']
 
     all_names = [d['name'] for d in data['crossIdentification']]
-    res.alias = [n for n in all_names if n != res.name]
+    res.aka = [n for n in all_names if n != res.name]
 
     return res
 
 
 def fetch(name: str,
           app_id: str,
-          app_secret: str) -> Optional[FetchedData]:
+          app_secret: str) -> Optional[ObjectData]:
 
     assert app_id
     assert app_secret

@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
 import common
-from datatypes import ObjectData, ObsData, DATA_NOTE, get_all_data_of
+from datatypes import Object, ObsData, get_all_data_of
 import project
 
 from copy import copy
 import re
 from typing import Any, Callable, Dict, List, Union
+
+
+DATA_NOTE = '\u2020'    # 'dagger': †
+DATA_NOTE_POSTFIX = f' {DATA_NOTE}'
 
 
 def emph(s: str) -> str:
@@ -79,17 +83,19 @@ def obs_table(data: ObsData) -> List[str]:
 
 def mark_fetched(data: str) -> str:
     if data:
-        return data + ' ' + DATA_NOTE
+        return data + DATA_NOTE_POSTFIX
+    return ''
 
 
-def get_annotated_data(obj: ObjectData) -> Dict[str, Dict[str, Any]]:
-
+def get_annotated_data(obj: Object) -> Dict[str, Dict[str, Any]]:
+    """
+    Get a collection of component data with fetched fields marked with 
+    """
     obj_data = get_all_data_of(obj)
     for od in obj_data.values():
         for k, v in od.items():
             if k in od.get('fetched_keys', []):
                 od[k] = mark_fetched(v)
-
     return obj_data
 
 
@@ -104,7 +110,8 @@ def merge_general_data(data: Dict[str, Dict[str, Any]], name: str) -> Dict[str, 
             else:
                 merge_to = list(res.keys())[0]
             for k, v in data['_'].items():
-                res[merge_to][k] = v
+                if v and not res[merge_to].get(k, ''):
+                    res[merge_to][k] = v
         else:
             res[name] = res['_']
         del res['_']
@@ -112,23 +119,55 @@ def merge_general_data(data: Dict[str, Dict[str, Any]], name: str) -> Dict[str, 
     return res
 
 
-def preprocess_data(obj: ObjectData) -> Dict[str, Dict[str, Any]]:
+def make_desc_from_types(data: Dict[str, str]) -> str:
+
+    if data.get('subtype') or data.get('type'):
+        desc: str = data.get('subtype', '').lower()
+        typ: str = data.get('type', '').lower()
+        if desc != typ:
+            # Add type as the 'qualified' item except in case of clusters.
+            # 'cluster' word would be redundant in these cases, e.g.
+            # 'Medium disperation, medium sized cluster with medium star density open cluster'
+            if 'cluster' not in desc or 'cluster' not in typ:
+                desc += ' ' + typ
+        return desc.lstrip().capitalize()
+    return ''
+
+
+def preprocess_data(obj: Object) -> Dict[str, Dict[str, Any]]:
 
     data = merge_general_data(get_annotated_data(obj), obj.name)
 
+    def del_if_exists(d: Dict, key: str):
+        if key in d.keys():
+            del d[key]
+
     for k, v in data.items():
         v['pretty_name'] = common.pretty_name(k)
+
+        # Auto-add description
+        if not v.get('desc', ''):
+            desc = make_desc_from_types(v)
+            if DATA_NOTE_POSTFIX in desc:
+                desc = mark_fetched(desc.replace(DATA_NOTE_POSTFIX, ''))
+            v['desc'] = desc
+
+        # Set 'fetched name' if differs from the user-defined
         if 'name' in v.keys():
-            if v['name'] != k:
-                v['fetched_name'] = v['name']
+            name = v['name'].removesuffix(DATA_NOTE_POSTFIX)
+            if name != k:
+                v['fetched_name'] = name
             del v['name']
-        if 'fetched_keys' in v.keys():
-            del v['fetched_keys']
+
+        del_if_exists(v, 'type')       # type and subtype combined to desc
+        del_if_exists(v, 'subtype')
+        del_if_exists(v, 'constellation')   # del a it's redundant
+        del_if_exists(v, 'fetched_keys')    # del administrative data
 
     return data
 
 
-def obj_table(objects: List[ObjectData]) -> List[str]:
+def obj_table(objects: List[Object]) -> List[str]:
 
     data = {}
     for d in objects:
@@ -145,7 +184,8 @@ def obj_table(objects: List[ObjectData]) -> List[str]:
         'fetched_name',
         'desc',
         'ra',
-        'dec'
+        'dec',
+        'mag'
     ]
     rows = PRIO_ROWS + [k for k in all_keys if k not in PRIO_ROWS]
 
@@ -154,7 +194,8 @@ def obj_table(objects: List[ObjectData]) -> List[str]:
         'Fetched as',
         'Desc.',
         'RA',
-        'Dec'
+        'Dec',
+        'Magnitude'
     ]
     rendered_rows = [r.replace('_', ' ').capitalize() for r in rows]
     rendered_rows = FANCY_PRIO_ROWS + rendered_rows[len(FANCY_PRIO_ROWS):]
@@ -162,11 +203,19 @@ def obj_table(objects: List[ObjectData]) -> List[str]:
     def col(data: Dict) -> List[str]:
         return [str(data.get(k, '')) for k in rows]
 
-    return md_table(data=list(data.values()), make_col=col, row_headers=rendered_rows)
+    tab = md_table(data=list(data.values()), make_col=col, row_headers=rendered_rows)
+
+    if any(DATA_NOTE_POSTFIX in row for row in tab):
+        tab += [
+            f'{DATA_NOTE} fetched from [astronomyapi.com](http://astronomyapi.com)',
+            ''
+        ]
+
+    return tab
 
 
 def tag_line(name: str,
-             object_data: ObjectData) -> str:
+             object_data: Object) -> str:
 
     def name_tags(n: str) -> List[str]:
         tags: List[str] = []
@@ -252,10 +301,10 @@ def obs_body(title: str,
              img: str,
              obs_tab: List[str],
              text: str,
-             object_data: Dict[str, ObjectData],
+             object_data: Dict[str, Object],
              sketch_notes: str) -> List[str]:
 
-    md = [tag_line(n, object_data.get(n, ObjectData())) + '  ' for n in names]
+    md = [tag_line(n, object_data.get(n, Object())) + '  ' for n in names]
     md += [
         '',
         common.md_image(title, f'{img}'),
@@ -277,12 +326,6 @@ def obs_body(title: str,
             ''
         ] + obj_tab
 
-        if any(f' {DATA_NOTE}' in row for row in obj_tab):
-            md += [
-                f'{DATA_NOTE} fetched from [astronomyapi.com](http://astronomyapi.com)',
-                ''
-            ]
-
     if len(md[-1]) > 0:
         md.append('')
 
@@ -300,7 +343,7 @@ def log_row(names: Union[str, List[str]], date: str, from_main: bool = False) ->
 def index_row(obj_name: str,
               all_names: Union[str, List[str]],
               date: str,
-              obj_data: ObjectData) -> List[str]:
+              obj_data: Object) -> List[str]:
 
     pretty_name: str = common.pretty_name(obj_name)
     url = project.obs_page_url(all_names, date)
@@ -340,7 +383,7 @@ def observation_page(obs_data: ObsData,
                      img: str,
                      notes: str = '',
                      links: Dict[str, str] = {},
-                     object_data: Dict[str, ObjectData] = {}) -> str:
+                     object_data: Dict[str, Object] = {}) -> str:
 
     title = common.pretty_name_str(obs_data.names)
 
