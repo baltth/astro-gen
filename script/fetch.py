@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from db import add_objects
 from datatypes import ObjectData
 
 import argparse

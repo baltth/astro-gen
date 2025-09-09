@@ -9,6 +9,7 @@ import project
 
 import argparse
 from copy import copy
+from natsort import natsorted
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
@@ -35,15 +36,34 @@ def sketch_of_obs(db: List[SketchData], obs: ObsData) -> SketchData:
     return res[0]
 
 
-def object_data(object_db: Dict[str, Object], names: Union[str, List[str]]) -> Dict[str, Object]:
-
-    if isinstance(names, str):
-        return object_data(object_db, [names])
+def object_data(object_db: Dict[str, Object], names: List[str]) -> Dict[str, Object]:
 
     return {n: object_db[n] for n in names if n in object_db.keys()}
 
 
-def get_links_notes(sketch_db: List[SketchData], obs: ObsData) -> Tuple[Dict, str]:
+def all_observations_of(name: str, obs_db: List[ObsData]) -> List[ObsData]:
+
+    return [obs for obs in obs_db if name in obs.names]
+
+
+def get_prev_next_obs_index(ref: ObsData, obs_list: List[ObsData]) -> Tuple[int, int]:
+
+    if len(obs_list) < 2:
+        return (-1, -1)
+
+    i = obs_list.index(ref)
+    prev_i = i - 1 if i > 0 else -1
+    next_i = i + 1 if i < len(obs_list) - 1 else -1
+    return (prev_i, next_i)
+
+
+def other_obs_link_data(obs: ObsData) -> Tuple[str, str, str]:
+    return (common.pretty_name_str(obs.names), obs.date, project.obs_page_url(obs.names, obs.date))
+
+
+def get_links_notes(obs: ObsData,
+                    obs_db: List[ObsData],
+                    sketch_db: List[SketchData]) -> Tuple[Dict, str]:
 
     sketch = sketch_of_obs(sketch_db, obs)
     links = {
@@ -53,6 +73,27 @@ def get_links_notes(sketch_db: List[SketchData], obs: ObsData) -> Tuple[Dict, st
     if sketch.scan:
         links['Original sketch'] = project.scan_url(sketch.scan)
 
+    other_obs_before = []
+    other_obs_after = []
+    for n in obs.names:
+        other_obs = all_observations_of(n, obs_db=obs_db)
+        if other_obs:
+            other_obs = natsorted(other_obs, key=lambda o: o.date)
+            prev, next = get_prev_next_obs_index(obs, other_obs)
+            if prev >= 0:
+                other_obs_before.append(other_obs_link_data(other_obs[prev]))
+            if next >= 0:
+                other_obs_after.append(other_obs_link_data(other_obs[next]))
+
+    def other_links(other: List[Tuple], prefix: str) -> Dict[str, str]:
+        return {f'{prefix}: {o[0]} on {o[1]}': o[2] for o in other}
+
+    if other_obs_before:
+        links.update(other_links(other_obs_before, 'Previous'))
+
+    if other_obs_after:
+        links.update(other_links(other_obs_after, 'Next'))
+
     return (links, sketch.notes)
 
 
@@ -60,11 +101,11 @@ def obs_page_name(obs: ObsData) -> str:
     return common.obs_page_name(obs.names, common.obs_day(obs.date))
 
 
-def generate_obs(obs: ObsData, sketch_db: List[SketchData], object_db: Dict[str, Object]):
+def generate_obs(obs: ObsData, obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[str, Object]):
 
     img = project.image_url(obs.img)
 
-    links, notes = get_links_notes(sketch_db=sketch_db, obs=obs)
+    links, notes = get_links_notes(obs=obs, obs_db=obs_db, sketch_db=sketch_db)
 
     data = copy(obs)
     data.loc = obs.loc if obs.loc else DEFAULT_LOCATION
@@ -151,7 +192,7 @@ def regen(obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[st
     print('Generating ...')
 
     for obs in obs_db:
-        generate_obs(obs=obs, sketch_db=sketch_db, object_db=object_db)
+        generate_obs(obs=obs, obs_db=obs_db, sketch_db=sketch_db, object_db=object_db)
 
     generate_obs_log(obs_db)
     generate_index(obs_db=obs_db, object_db=object_db)
