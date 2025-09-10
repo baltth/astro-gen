@@ -250,7 +250,7 @@ def tag_line(name: str,
         sd = emph(sd[0].upper() + sd[1:])
         tags.append(sd)
 
-    return ' - '.join(tags)
+    return ' -- '.join(tags)
 
 
 def subtitle(title: str, level: int = 2) -> str:
@@ -258,14 +258,16 @@ def subtitle(title: str, level: int = 2) -> str:
     return '#'*level + ' ' + title
 
 
-def header(title: str) -> List[str]:
+def header(title: str, links: Dict[str, str]) -> List[str]:
 
-    links = common.md_link('Main page', '../index.md') + ' - ' + common.md_link('Index', '../pages/obj_index.md')
+    link_line = common.md_link('Main page', '../index.md') + ' -- ' + common.md_link('Index', '../pages/obj_index.md')
+    for k, v in links.items():
+        link_line += ' -- ' + common.md_link(k, v)
 
     return [
         f'# {title}',
         '',
-        links,
+        link_line,
         ''
     ]
 
@@ -295,11 +297,12 @@ def join(content: List[str]) -> str:
 def page(title: str,
          content: List[str],
          notes: str = '',
-         links: Dict[str, str] = {}) -> str:
+         nav_links: Dict[str, str] = {},
+         content_links: Dict[str, str] = {}) -> str:
 
-    md = header(title)
+    md = header(title, links=nav_links)
     md += content
-    md += footer(notes=notes, links=links)
+    md += footer(notes=notes, links=content_links)
 
     return join(md)
 
@@ -390,7 +393,8 @@ def index_data(data: Union[List, Dict]) -> List[str]:
 def observation_page(obs_data: ObsData,
                      img: str,
                      notes: str = '',
-                     links: Dict[str, str] = {},
+                     nav_links: Dict[str, str] = {},
+                     content_links: Dict[str, str] = {},
                      object_data: Dict[str, Object] = {}) -> str:
 
     title = common.pretty_name_str(obs_data.names)
@@ -406,7 +410,8 @@ def observation_page(obs_data: ObsData,
                   sketch_notes=notes)
     return page(title=title,
                 content=md,
-                links=links)
+                nav_links=nav_links,
+                content_links=content_links)
 
 
 def index_page(title: str,
@@ -417,4 +422,4 @@ def index_page(title: str,
     return page(title=title,
                 content=index_data(data),
                 notes=notes,
-                links=links)
+                content_links=links)
