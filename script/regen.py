@@ -58,7 +58,8 @@ def get_prev_next_obs_index(ref: ObsData, obs_list: List[ObsData]) -> Tuple[int,
 
 
 def other_obs_link_data(obs: ObsData) -> Tuple[str, str, str]:
-    return (common.pretty_name_str(obs.names), obs.date, project.obs_page_url(obs.names, obs.date))
+    date = common.obs_day(obs.date)
+    return (common.pretty_name_str(obs.names), date, project.obs_page_url(obs.names, date))
 
 
 def get_nav_links(obs: ObsData,
