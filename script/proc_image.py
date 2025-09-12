@@ -174,7 +174,9 @@ def split_cmd(args) -> Dict:
         db_data['second_name'] = args.first_object
         db_data['second_img'] = n
 
-    if args.second_object and not args.first_object:
+    if args.first_object and not args.second_object:
+        full_name = f'{args.first_object} NA'
+    elif args.second_object and not args.first_object:
         full_name = f'NA {args.second_object}'
     else:
         full_name = f'{args.first_object} {args.second_object}'
