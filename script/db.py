@@ -181,9 +181,9 @@ def _refresh_with_fetched(entry: Dict, fetched: ObjectData) -> Dict:
         e['type'] = fetched.type.lower()
 
     f_dict = asdict(fetched)
-    keys_to_del = ['constellation', 'data']
+    keys_to_del = ['name', 'constellation', 'data']
     if not fetched.desc:
-        keys_to_del.append('decs')
+        keys_to_del.append('desc')
     if not fetched.spectral_class:
         keys_to_del.append('spectral_class')
     if not fetched.mag:
