@@ -117,13 +117,16 @@ def fetch_cmd(args: argparse.Namespace):
     print(fetched)
     if fetched:
 
-        if fetch_name != args.object:
-            fetched[args.object] = fetched[fetch_name]
+        if args.component:
+            fetch_map = {args.component: fetch_name}
+        else:
+            fetch_map = {fetch_name: fetch_name}
 
         print(f'Add object data for {args.object} ...')
         db.add_objects(root=args.project_root,
                        name=args.object,
                        fetched=fetched,
+                       fetch_map={args.object: fetch_map},
                        refresh=True)
     else:
         print(f'No data for {fetch_name}')
@@ -150,6 +153,7 @@ def main():
     fetch_parser = cmd.add_parser('fetch')
     fetch_parser.add_argument('object')
     fetch_parser.add_argument('-n', '--name', help='Alias on astronomyapi.com', default='')
+    fetch_parser.add_argument('-c', '--component', help='Add as component', default='')
     fetch_parser.set_defaults(func=fetch_cmd)
 
     args = parser.parse_args()
