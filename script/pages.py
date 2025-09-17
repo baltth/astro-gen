@@ -12,6 +12,8 @@ from typing import Any, Callable, Dict, List, Union
 DATA_NOTE = '\u2020'    # 'dagger': †
 DATA_NOTE_POSTFIX = f' {DATA_NOTE}'
 
+EMPTY_CELL_PLACEHOLDER = '$'
+
 
 def emph(s: str) -> str:
     return f'_{s}_'
@@ -22,8 +24,14 @@ def md_table(data: List, make_col: Callable, row_headers: List[str]) -> List[str
     def empty_data(r: List[str]) -> bool:
         return not any(r[1:])
 
-    obj_data = [make_col(d) for d in data]
+    def normalize(c: List[str]) -> List[str]:
+        return [v.replace('\n', ' ').replace('\r', ' ').strip() for v in c]
 
+    def normalize_empty_cells(r: List[str]) -> List[str]:
+        return [v.replace(EMPTY_CELL_PLACEHOLDER, ' ') for v in r]
+
+    obj_data = [make_col(d) for d in data]
+    obj_data = [normalize(d) for d in obj_data]
     cols = [row_headers] + [d for d in obj_data if not empty_data(d)]  # drop empty columns
     if len(cols) == 1:
         # Only the row header remains
@@ -31,7 +39,8 @@ def md_table(data: List, make_col: Callable, row_headers: List[str]) -> List[str
 
     rows = [list(r) for r in zip(*cols)]
 
-    table_data = [r for r in rows if not empty_data(r)]  # drop empty rows
+    table_data = [r for r in rows if not empty_data(r)]  # drop empty rows.
+    table_data = [normalize_empty_cells(r) for r in table_data]
 
     assert table_data
     if len(table_data) == 1:
@@ -75,7 +84,7 @@ def obs_table(data: ObsData) -> List[str]:
         ]
         custom_data = [str(v) for v in d.data.values()]
         if custom_data:
-            col_data += [' '] + custom_data
+            col_data += [EMPTY_CELL_PLACEHOLDER] + custom_data
         return col_data
 
     return md_table([data], make_col=col, row_headers=rows)
