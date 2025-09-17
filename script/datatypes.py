@@ -55,26 +55,33 @@ def create(cls: Type, d: Dict) -> Any:
     return cls(**filt)
 
 
+def _resolve_comp_name(comp_name: str, obj_name: str) -> str:
+    if comp_name.startswith('~'):
+        return f'{obj_name} {comp_name.removeprefix('~').lstrip()}'
+    return comp_name
+
+
+def _flat_data(o: ObjectData) -> Dict:
+    """
+    ObjectData as dictionary with
+    - 'data' moved to root
+    - 'aka' list removed
+    - all fields as string
+    """
+    d = asdict(o)
+    if 'data' in d.keys():
+        d.update(d['data'])
+        del d['data']
+    if 'aka' in d.keys():
+        del d['aka']
+    return {k: str(v) for k, v in d.items()}
+
+
 def get_all_data_of(obj: Object) -> Dict[str, Dict[str, str]]:
     """
     Create a collection of the component data and fetched data
     with combining associated data sets.    
     """
-
-    def flat_data(o: ObjectData) -> Dict:
-        """
-        ObjectData as dictionary with
-        - 'data' moved to root
-        - 'aka' list removed
-        - all fields as string
-        """
-        d = asdict(o)
-        if 'data' in d.keys():
-            d.update(d['data'])
-            del d['data']
-        if 'aka' in d.keys():
-            del d['aka']
-        return {k: str(v) for k, v in d.items()}
 
     added_fetched = set()
     components = deepcopy(obj.components)
@@ -84,21 +91,25 @@ def get_all_data_of(obj: Object) -> Dict[str, Dict[str, str]]:
     # Collect data from the main object
     OD_FIELDS = [f.name for f in fields(ObjectData)]
     OBJ_FIELDS = [f.name for f in fields(Object)]
-    main_obj = {k: v for k, v in flat_data(obj).items() if k in OD_FIELDS or k not in OBJ_FIELDS}
+    main_obj = {k: v for k, v in _flat_data(obj).items() if k in OD_FIELDS or k not in OBJ_FIELDS}
 
     # For all components: collect with associated fetched data merged
     for c_key, c in components.items():
 
+        # Resolve '~' reference to owner object in names
+        resolved_name = _resolve_comp_name(comp_name=c_key, obj_name=obj.name)
+        own_name = resolved_name if c.name == c_key else c.name
+
         # create data set
-        c_dict = flat_data(c)
+        c_dict = _flat_data(c)
+        c_dict['name'] = own_name
         c_dict['fetched_keys'] = []
 
         # merge associated fetched data on demand
-        if c.name in obj.fetched.keys():
+        if own_name in obj.fetched.keys():
 
-            added_fetched.add(c.name)
-            f_dict = flat_data(obj.fetched[c.name])
-
+            added_fetched.add(own_name)
+            f_dict = _flat_data(obj.fetched[own_name])
             # merge fetched to component
             for k, v in f_dict.items():
                 if v and not c_dict.get(k, ''):
@@ -107,13 +118,13 @@ def get_all_data_of(obj: Object) -> Dict[str, Dict[str, str]]:
                     c_dict['fetched_keys'].append(k)
 
         # Store the component data
-        res[c_key] = c_dict
+        res[resolved_name] = c_dict
 
     # For the remaining unused fetched data:
     for f_key, f in obj.fetched.items():
         if f_key not in added_fetched:
             # Store fetched data
-            f_dict = flat_data(f)
+            f_dict = _flat_data(f)
 
             # register keys fof fetched
             f_dict['fetched_keys'] = list(f_dict.keys())

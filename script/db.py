@@ -172,7 +172,7 @@ def add_obs(root: str,
     save(project.obs_db(root), odb)
 
 
-def _refresh_with_fetched(entry: Dict, fetched: ObjectData) -> Dict:
+def _refresh_with_fetched(entry: Dict, fetched: ObjectData, comp: str = '') -> Dict:
 
     e = deepcopy(entry)
     if not e['constellation']:
@@ -181,17 +181,21 @@ def _refresh_with_fetched(entry: Dict, fetched: ObjectData) -> Dict:
         e['type'] = fetched.type.lower()
 
     f_dict = asdict(fetched)
-    keys_to_del = ['constellation', 'data']
+    keys_to_del = ['name', 'constellation', 'data']
     if not fetched.desc:
-        keys_to_del.append('decs')
+        keys_to_del.append('desc')
     if not fetched.spectral_class:
         keys_to_del.append('spectral_class')
     if not fetched.mag:
         keys_to_del.append('mag')
 
+    if comp and comp != fetched.name:
+        e.setdefault('components', {})
+        e['components'].setdefault(comp, {})
+        e['components'][comp]['name'] = fetched.name
+
     f_dict = {k: v for k, v in f_dict.items() if k not in keys_to_del}
-    if 'fetched' not in e.keys():
-        e['fetched'] = {}
+    e.setdefault('fetched', {})
     e['fetched'][fetched.name] = f_dict
 
     return e
@@ -199,7 +203,8 @@ def _refresh_with_fetched(entry: Dict, fetched: ObjectData) -> Dict:
 
 def add_object(obj_dict: YamlDict,
                name: str,
-               fetched: ObjectData,
+               fetched: Dict[str, ObjectData],
+               fetch_map: Dict[str, str] = {},
                refresh: bool = False) -> bool:
 
     def new_entry() -> Dict:
@@ -226,9 +231,10 @@ def add_object(obj_dict: YamlDict,
     db_names = natsorted(db_names)
     pos = db_names.index(name)
 
-    fetched_valid = bool(fetched.name)
-    if fetched_valid:
-        entry = _refresh_with_fetched(entry, fetched)
+    if name in fetched.keys():
+        entry = _refresh_with_fetched(entry, fetched[name])
+    for k, v in fetch_map.items():
+        entry = _refresh_with_fetched(entry, fetched=fetched[v], comp=k)
 
     obj_dict.insert(pos, name, entry)
     if pos < (len(obj_dict) - 1):
@@ -240,6 +246,7 @@ def add_object(obj_dict: YamlDict,
 def add_objects(root: str,
                 name: str,
                 fetched: Dict[str, ObjectData] = {},
+                fetch_map: Dict[str, Dict[str, str]] = {},
                 refresh: bool = False):
 
     odb = load(project.object_db(root))
@@ -248,8 +255,8 @@ def add_objects(root: str,
     names = name.replace(', ', ',').split(',')
     added = False
     for n in names:
-        f = fetched.get(n, ObjectData())
-        added = add_object(obj_dict, n, f, refresh=refresh) or added
+        map_of_obj = fetch_map.get(n, {})
+        added = add_object(obj_dict, n, fetched=fetched, fetch_map=map_of_obj, refresh=refresh) or added
 
     if added:
         save(project.object_db(root), odb)
