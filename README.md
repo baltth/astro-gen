@@ -16,6 +16,7 @@ and its [source](https://github.com/baltth/astro).
 
 - _pyhton3 venv_ with packages
   - `natsort`
+  - `numpy`
   - `pillow`
   - `pyhon-slugify`
   - `requests`
