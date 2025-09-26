@@ -11,7 +11,7 @@ import argparse
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from shlex import join as shjoin
+from shlex import join as shjoin, split as shsplit
 import sys
 from typing import Dict
 
@@ -38,7 +38,7 @@ def add_images(args: argparse.Namespace) -> Dict:
     return db_data
 
 
-def add_sketch(root: str, data: Dict):
+def add_sketch(root: str, data: Dict, cmd: str = ''):
 
     print('Add sketches ...')
 
@@ -47,11 +47,14 @@ def add_sketch(root: str, data: Dict):
         data.get('second_img', '')
     ]
 
+    if not cmd:
+        cmd = shjoin(sys.argv)
+
     db.add_sketch(root=root,
                   full=data['cropped_img'],
                   scan=data.get('scan', ''),
                   sub=[i for i in imgs if i],
-                  cmd=[shjoin(sys.argv)])
+                  cmd=[cmd])
 
 
 def add_observation(root: str, name: str, img_date: datetime):
@@ -132,15 +135,62 @@ def fetch_cmd(args: argparse.Namespace):
         print(f'No data for {fetch_name}')
 
 
-def main():
+def reproc_one(sketch: Dict, args):
+
+    print(f'Reprocessing sketch {sketch['full']} ...')
+
+    commands = sketch.get('_cmd', [])
+    commands = [c for c in commands if ' add ' in c]
+    if not commands:
+        print('Skipping, sketch has no command data for \'add\'')
+        return
+
+    for c in commands:
+        try:
+
+            cmd = shsplit(c)[1:]
+            print(f'Args were {shjoin(cmd)}')
+            proc_args = arg_parser().parse_args(cmd)
+            proc_args.project_root = args.project_root
+
+            sketch_data = add_images(proc_args)
+            add_sketch(root=args.project_root, data=sketch_data, cmd=c)
+
+        except Exception as e:
+            print(e)
+            print('Unable to execute command')
+            print(c)
+
+
+def reproc_cmd(args: argparse.Namespace):
+
+    sketches = db.sketches_raw(args.project_root)
+
+    if args.sketch:
+        basename = Path(args.sketch).name
+        found = [s for s in sketches if s['full'] == basename]
+        if not found:
+            print(f'No sketch found with full name {basename}')
+        elif len(found) > 1:
+            print(f'Error: multiple sketches found with full name {basename}')
+        else:
+            reproc_one(found[0], args)
+    else:
+        print('Reprocessing all sketches ...')
+        for s in sketches:
+            print('--------')
+            reproc_one(s, args)
+
+
+def arg_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser()
     parser.description = 'Process and add observations'
 
     parser.add_argument('project_root', help='Root folder of project to generate')
-    cmd = parser.add_subparsers()
+    cmd = parser.add_subparsers(title='Commands')
 
-    add_parser = cmd.add_parser('add')
+    add_parser = cmd.add_parser('add', help='Add new observations')
     add_parser.add_argument('-i', '--img', help='Source image')
     add_parser.add_argument('-c', '--scan', help='Scanned image')
     add_parser.add_argument('-x', '--x-offset', type=int, default=0)
@@ -150,13 +200,22 @@ def main():
     add_parser.add_argument('-o2', '--second-object', default='')
     add_parser.set_defaults(func=add_cmd)
 
-    fetch_parser = cmd.add_parser('fetch')
+    fetch_parser = cmd.add_parser('fetch', help='Fetch object data from astronomyapi.com')
     fetch_parser.add_argument('object')
     fetch_parser.add_argument('-n', '--name', help='Alias on astronomyapi.com', default='')
     fetch_parser.add_argument('-c', '--component', help='Add as component', default='')
     fetch_parser.set_defaults(func=fetch_cmd)
 
-    args = parser.parse_args()
+    reproc_parser = cmd.add_parser('reproc', help='Reprocess previously added images')
+    reproc_parser.add_argument('-s', '--sketch', help='Sketch file', default='')
+    reproc_parser.set_defaults(func=reproc_cmd)
+
+    return parser
+
+
+def main():
+
+    args = arg_parser().parse_args()
     args.func(args)
 
 

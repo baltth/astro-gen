@@ -4,7 +4,7 @@ import argparse
 from tempfile import mkstemp
 from copy import deepcopy
 from datetime import datetime
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 import numpy
 from math import floor, ceil
 from PIL import Image, ImageDraw, ImageFont, ExifTags
@@ -205,9 +205,10 @@ def save_image(img: Image, name: str, desc: str = ''):
     img.save(name, exif=meta.tobytes())
 
 
-def save_object(img: Image, dest_dir: str, object_name: str) -> str:
+def save_object(img: Image, dest_dir: str, object_name: str, date: Optional[datetime] = None) -> str:
 
-    date = image_date(img)
+    if not date:
+        date = image_date(img)
     name = slugify(f'{object_name}-{date.year:04}{date.month:02}{date.day:02}')
     path_prefix = f'{dest_dir}/' if dest_dir else ''
     save_image(img, name=f'{path_prefix}{name}.jpg', desc=f'Sketch of {object_name}')
@@ -228,11 +229,16 @@ def split_cmd(args) -> Dict:
         img1.show()
         img2.show()
 
+    date = image_date(src)
+
     db_data = {}
-    db_data['img_date'] = image_date(src)
+    db_data['img_date'] = date
 
     if args.first_object:
-        n = save_object(img=img1, dest_dir=args.dest, object_name=args.first_object)
+        n = save_object(img=img1,
+                        dest_dir=args.dest,
+                        object_name=args.first_object,
+                        date=date)
         db_data['first_name'] = args.first_object
         db_data['first_img'] = n
 
@@ -240,7 +246,10 @@ def split_cmd(args) -> Dict:
             args.second_object += ' 2nd'
 
     if args.second_object:
-        n = save_object(img=img2, dest_dir=args.dest, object_name=args.second_object)
+        n = save_object(img=img2,
+                        dest_dir=args.dest,
+                        object_name=args.second_object,
+                        date=date)
         db_data['second_name'] = args.first_object
         db_data['second_img'] = n
 
@@ -253,7 +262,8 @@ def split_cmd(args) -> Dict:
 
     n = save_object(img=cropped,
                     dest_dir=args.dest,
-                    object_name=full_name)
+                    object_name=full_name,
+                    date=date)
     db_data['cropped_img'] = n
 
     return db_data
