@@ -5,7 +5,8 @@ from tempfile import mkstemp
 from copy import deepcopy
 from datetime import datetime
 from typing import Tuple, Dict
-
+import numpy
+from math import floor, ceil
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 from slugify import slugify
 
@@ -76,13 +77,82 @@ def split_image(src: Image) -> Tuple[Image, Image]:
     return (img1, img2)
 
 
-def resize_to_width(img: Image, w: int) -> Image:
+def luminance_weighted_downscale(image_array: numpy.ndarray, scale: float):
+    """Apply luminance-weighted downscaling to preserve bright features."""
+
+    assert 0 < scale < 1
+
+    h, w = image_array.shape[:2]
+    new_h = int(h * scale)
+    new_w = int(w * scale)
+
+    scale_inv = 1 / scale
+
+    # Block index range for a dimension
+    def ix_range(ix: int, dim: int) -> Tuple[int, int]:
+        start_ix = ix * scale_inv
+        end_ix = min(start_ix + scale_inv, dim)
+        return (int(floor(start_ix)), int(ceil(end_ix)))
+
+    # Weighted average based on luminance
+    def calc_from_weights(block: numpy.ndarray, weights: numpy.ndarray) -> float:
+        total_weight = numpy.sum(weights)
+        if total_weight > 0:
+            return numpy.sum(block * weights) / total_weight
+        else:
+            return numpy.mean(block)
+
+    # Check if RGB
+    assert len(image_array.shape) == 3
+
+    # RGB image - calculate luminance weights
+    # Standard luminance weights: R=0.299, G=0.587, B=0.114
+    luminance = 0.299 * image_array[:, :, 0] + 0.587 * image_array[:, :, 1] + 0.114 * image_array[:, :, 2]
+    channels = image_array.shape[2]
+    result = numpy.zeros((new_h, new_w, channels), dtype=image_array.dtype)
+
+    for c in range(channels):
+        for i in range(new_h):
+            for j in range(new_w):
+                start_i, end_i = ix_range(i, h)
+                start_j, end_j = ix_range(j, w)
+
+                block = image_array[start_i:end_i, start_j:end_j, c]
+                weights = luminance[start_i:end_i, start_j:end_j]
+                result[i, j, c] = calc_from_weights(block=block, weights=weights)
+
+    # For grayscale image:
+    # ```py
+    # result = numpy.zeros((new_h, new_w), dtype=image_array.dtype)
+    #
+    # for i in range(new_h):
+    #     for j in range(new_w):
+    #         start_i, end_i = ix_range(i, h)
+    #         start_j, end_j = ix_range(j, w)
+    #
+    #         block = image_array[start_i:end_i, start_j:end_j]
+    #         weights = block.astype(numpy.float32) ** 2    # Use squared values as weights
+    #         result[i, j] = calc_from_weights(block=block, weights=weights)
+    # ```
+
+    return result
+
+
+def resize_to_width(img: Image, w: int, mode: str = 'lw') -> Image:
 
     orig_width, orig_height = img.size
 
     scale = w / orig_width
+    assert scale < 1.0
 
-    return img.resize((w, int(scale * orig_height)))
+    if mode == 'lw':
+        assert img.mode == 'RGB'
+        img_array = numpy.array(img)
+        resized_array = luminance_weighted_downscale(img_array, scale)
+        resized_array = numpy.clip(resized_array, 0, 255).astype(numpy.uint8)
+        return Image.fromarray(resized_array, mode='RGB')
+    else:
+        return img.resize((w, int(scale * orig_height)))
 
 
 def add_copyright_img(src: Image) -> Image:
