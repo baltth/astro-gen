@@ -198,6 +198,8 @@ def arg_parser() -> argparse.ArgumentParser:
     add_parser.add_argument('-s', '--scale', type=float, default=1.0)
     add_parser.add_argument('-o1', '--first-object', default='')
     add_parser.add_argument('-o2', '--second-object', default='')
+    add_parser.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
+                            action='store_true')
     add_parser.set_defaults(func=add_cmd)
 
     fetch_parser = cmd.add_parser('fetch', help='Fetch object data from astronomyapi.com')

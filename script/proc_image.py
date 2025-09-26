@@ -186,15 +186,17 @@ def add_copyright_meta(img: Image, desc: str = '') -> Image.Exif:
     return meta
 
 
-def process(src: Image, x_offset: int, y_offset: int, scale: float) -> Tuple[Image, Image, Image]:
+def process(src: Image, x_offset: int, y_offset: int, scale: float, simple_resize: bool = False) -> Tuple[Image, Image, Image]:
 
     cropped = remove_frame(src, x_offset, y_offset, scale)
     img1, img2 = split_image(cropped)
 
     WIDTH = 800
 
-    img1 = resize_to_width(img1, WIDTH)
-    img2 = resize_to_width(img2, WIDTH)
+    method = 'orig' if simple_resize else 'lw'
+
+    img1 = resize_to_width(img1, WIDTH, method)
+    img2 = resize_to_width(img2, WIDTH, method)
 
     return (add_copyright_img(cropped), add_copyright_img(img1), add_copyright_img(img2))
 
@@ -222,7 +224,11 @@ def split_cmd(args) -> Dict:
     print(f'Source image: {args.source_image}')
     print_meta(src)
 
-    cropped, img1, img2 = process(src, args.x_offset, args.y_offset, args.scale)
+    cropped, img1, img2 = process(src,
+                                  args.x_offset,
+                                  args.y_offset,
+                                  args.scale,
+                                  simple_resize=args.simple)
 
     if args.show:
         cropped.show()
@@ -305,6 +311,8 @@ def main():
     split.add_argument('-o1', '--first-object', default='')
     split.add_argument('-o2', '--second-object', default='')
     split.add_argument('-w', '--show', action='store_true')
+    split.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
+                       action='store_true')
     split.set_defaults(func=split_cmd)
 
     cr = cmd.add_parser("copyright")
