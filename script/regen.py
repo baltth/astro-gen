@@ -30,7 +30,7 @@ def write_file(cat: str, name: str, content: str):
 
 def sketch_of_obs(db: List[SketchData], obs: ObsData) -> SketchData:
 
-    res = [s for s in db if obs.img in s.sub]
+    res = [s for s in db if obs.img in s.sub or obs.img == s.full]
 
     assert len(res) == 1
     return res[0]
