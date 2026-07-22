@@ -149,7 +149,8 @@ def generate_obs_log(obs_db: List[ObsData]):
 def generate_index(obs_db: List[ObsData], object_db: Dict[str, Object]):
 
     content = pages.page(title='Index',
-                         content=index.index_content(obs_db=obs_db, object_db=object_db))
+                         content=index.index_content(obs_db=obs_db, object_db=object_db),
+                         toc_level=2)
     write_file('pages', 'obj_index.md', content)
 
 
@@ -172,25 +173,19 @@ def generate_main(obs_db: List[ObsData]):
     main_pre = load_md(project.main_pre_file(project_root))
     main_post = load_md(project.main_post_file(project_root))
 
-    SEPARATOR = [
-        '',
-        '---',
-        ''
-    ]
-
-    content = main_pre + SEPARATOR
+    content = main_pre + pages.SEPARATOR
 
     content += [
         pages.subtitle('Latest'),
         ''
-    ] + pages.index_data(latest_obs) + SEPARATOR
+    ] + pages.index_data(latest_obs) + pages.SEPARATOR
 
     content += [
         f'## {common.md_link('All observations', 'pages/log.md')}',
         '',
         f'## {common.md_link('Index', 'pages/obj_index.md')}',
         ''
-    ] + SEPARATOR
+    ] + pages.SEPARATOR
 
     content += main_post
 
