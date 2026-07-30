@@ -131,12 +131,12 @@ def generate_obs(obs: ObsData, obs_db: List[ObsData], sketch_db: List[SketchData
 
 def obs_log_data(obs_db: List[ObsData], from_main: bool) -> List:
 
-    def row(obs: ObsData) -> List[str]:
-        obs_day = common.obs_day(obs.date)
-        return pages.log_row(obs.names, obs_day, from_main)
-
-    data = [row(o) for o in obs_db]
-    return sorted(data, key=itemgetter(0), reverse=True)
+    def row(date: str, names: List[str]) -> List[str]:
+        obs_day = common.obs_day(date)
+        return pages.log_row(names, obs_day, from_main)
+    
+    rev_sorted_data = sorted(((o.date, o.names) for o in obs_db), reverse=True)
+    return [row(o[0], o[1]) for o in rev_sorted_data]
 
 
 def generate_obs_log(obs_db: List[ObsData]):
