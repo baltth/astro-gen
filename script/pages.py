@@ -6,7 +6,14 @@ import project
 
 from copy import copy
 import re
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Union, Tuple
+
+
+SEPARATOR = [
+    '',
+    '---',
+    ''
+]
 
 
 DATA_NOTE = '\u2020'    # 'dagger': †
@@ -267,6 +274,16 @@ def subtitle(title: str, level: int = 2) -> str:
     return '#'*level + ' ' + title
 
 
+def fetch_subtitle(line: str) -> Tuple[int, str]:
+
+    def fetch(l: int, s: str) -> Tuple[int, str]:
+        if not s.startswith('#'):
+            return l, s.strip()
+        return fetch(l+1, s.removeprefix('#'))
+
+    return fetch(0, line.strip())
+
+
 def header(title: str, links: Dict[str, str]) -> List[str]:
 
     link_line = common.md_link('Main page', '../index.md') + ' -- ' + common.md_link('Index', '../pages/obj_index.md')
@@ -303,13 +320,36 @@ def join(content: List[str]) -> str:
     return '\n'.join(content) + '\n'
 
 
+def table_of_contents(content: List[str], max_level: int = 2) -> List[str]:
+    assert max_level > 1
+
+    def to_link(title: str):
+        anchor = '#' + title.lower().replace(' ', '-')
+        return common.md_link(title, anchor)
+
+    res: List[str] = []
+    for l in content:
+        level, title = fetch_subtitle(l)
+        if level > 1 and level <= max_level:
+            indent = " " * (level - 2)
+            res.append(indent + '- ' + to_link(title))
+
+    return res
+
+
 def page(title: str,
          content: List[str],
          notes: str = '',
          nav_links: Dict[str, str] = {},
-         content_links: Dict[str, str] = {}) -> str:
+         content_links: Dict[str, str] = {},
+         toc_level: int = 0) -> str:
 
     md = header(title, links=nav_links)
+
+    if toc_level >= 2 and len(content) > 100:
+        toc = table_of_contents(content=content, max_level=toc_level)
+        if len(toc) > 1:
+            md += SEPARATOR + toc + SEPARATOR
     md += content
     md += footer(notes=notes, links=content_links)
 
@@ -431,4 +471,5 @@ def index_page(title: str,
     return page(title=title,
                 content=index_data(data),
                 notes=notes,
-                content_links=links)
+                content_links=links,
+                toc_level=0)
