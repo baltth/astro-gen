@@ -11,6 +11,7 @@ import argparse
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+from shutil import copy as cp
 from shlex import join as shjoin, split as shsplit
 import sys
 from typing import Dict
@@ -20,19 +21,32 @@ def add_images(args: argparse.Namespace) -> Dict:
 
     print('Processing images ...')
 
+    meta_file = project.meta_file(args.project_root)
+
     split_args = deepcopy(args)
     setattr(split_args, 'source_image', args.img)
     setattr(split_args, 'dest',  project.site_images(args.project_root))
     setattr(split_args, 'show', False)
+    
+    if Path(meta_file).is_file():
+        setattr(split_args, 'copyright_file', meta_file)
+
     db_data = proc_image.split_cmd(split_args)
 
     if args.scan:
         cr_args = deepcopy(args)
-        setattr(cr_args, 'source_image', args.scan)
         scan_file = Path(args.scan).parts[-1]
-        setattr(cr_args, 'out',  f'{project.site_root(args.project_root)}/scan/{scan_file}')
-        setattr(cr_args, 'show', False)
-        proc_image.copyright_cmd(cr_args)
+        out_path = f'{project.site_root(args.project_root)}/scan/{scan_file}'
+
+        if Path(meta_file).is_file():
+            setattr(cr_args, 'source_image', args.scan)
+            setattr(cr_args, 'out', out_path)
+            setattr(cr_args, 'show', False)
+            setattr(cr_args, 'copyright_file', meta_file)
+            proc_image.copyright_cmd(cr_args)
+        else:
+            cp(scan_file, out_path)
+
         db_data['scan'] = scan_file
 
     return db_data

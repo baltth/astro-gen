@@ -42,6 +42,10 @@ def main_post_file(root: str) -> str:
     p = Path(root) / 'static' / 'main_post.md'
     return str(p.resolve())
 
+def meta_file(root: str) -> str:
+    p = Path(root) / 'static' / 'meta.yaml'
+    return str(p.resolve())
+
 
 # Url for generated links
 

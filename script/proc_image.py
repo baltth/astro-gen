@@ -7,9 +7,10 @@ from datetime import datetime
 from typing import Tuple, Dict, Optional
 import numpy
 from math import floor, ceil
+import yaml
+
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 from slugify import slugify
-
 
 ARTIST_TAG = 0x013b
 COPYRIGHT_TAG = 0x8298
@@ -17,13 +18,25 @@ DATE_TIME_TAG = 0x132
 DESCRIPTION_TAG = 0x010e
 SOFTWARE_TAG = 0x0131
 
-AUTHOR = 'Balazs Toth'
-MAIL = 'baltth@gmail.com'
+
+def load_copyright_data(file: str) -> Dict:
+
+    with open(file, encoding='utf8') as f:
+        data = yaml.safe_load(f)
+        assert isinstance(data, dict)
+        return data
 
 
-def copyright_text(year: int) -> str:
-    assert year >= 2025
-    return f'(C) {year}, {AUTHOR}, {MAIL}'
+def copyright_meta(year: int, cr_data: Dict) -> str:
+    assert year >= 1900
+    return f'(C) {year}, {cr_data['author']}, {cr_data['email']}'
+
+
+def copyright_text_on_image(year: int, cr_data: Dict) -> str:
+    assert year >= 1900
+    text = cr_data['image_note']
+    assert isinstance(text, str)
+    return text.replace('YEAR', str(year))
 
 
 def print_meta(img: Image):
@@ -155,10 +168,10 @@ def resize_to_width(img: Image, w: int, mode: str = 'lw') -> Image:
         return img.resize((w, int(scale * orig_height)))
 
 
-def add_copyright_img(src: Image) -> Image:
+def add_copyright_img(src: Image, cr_data: Dict) -> Image:
 
-    FONT_SIZE = 12
-    TEXT_OFFSET = 6
+    FONT_SIZE = 11
+    TEXT_OFFSET = 4
     TEXT_COLOR = 'dimgray'
 
     img = deepcopy(src)
@@ -168,20 +181,21 @@ def add_copyright_img(src: Image) -> Image:
 
     draw = ImageDraw.Draw(img)
     draw.text(coords,
-              copyright_text(image_year(img)),
+              copyright_text_on_image(image_year(img), cr_data),
               fill=TEXT_COLOR,
               font=ImageFont.load_default(FONT_SIZE))
     return img
 
 
-def add_copyright_meta(img: Image, desc: str = '') -> Image.Exif:
+def add_copyright_meta(img: Image, desc: str, cr_data: Dict) -> Image.Exif:
 
     meta = img.getexif()
-    meta[ARTIST_TAG] = AUTHOR
-    meta[COPYRIGHT_TAG] = copyright_text(image_year(img))
-    meta[SOFTWARE_TAG] = 'github.com/baltth/astro.git'
+    meta[SOFTWARE_TAG] = 'github.com/baltth/astro-gen.git'
     if desc:
         meta[DESCRIPTION_TAG] = desc
+    if cr_data:
+        meta[ARTIST_TAG] = cr_data['author']
+        meta[COPYRIGHT_TAG] = copyright_meta(image_year(img), cr_data)
 
     return meta
 
@@ -191,7 +205,11 @@ def process(src: Image,
             y_offset: int,
             scale: float,
             simple_resize: bool = False,
-            split: bool = True) -> Tuple[Image, Image, Optional[Image]]:
+            split: bool = True,
+            cr_data: Optional[Dict] = None) -> Tuple[Image, Image, Optional[Image]]:
+
+    if not cr_data:
+        cr_data = {}
 
     WIDTH = 800
 
@@ -207,28 +225,41 @@ def process(src: Image,
         img1 = resize_to_width(cropped, WIDTH, method)
         img2 = None
 
-    return (add_copyright_img(cropped),
-            add_copyright_img(img1),
-            add_copyright_img(img2) if img2 else None)
+    return (add_copyright_img(cropped, cr_data),
+            add_copyright_img(img1, cr_data),
+            add_copyright_img(img2, cr_data) if img2 else None)
 
 
-def save_image(img: Image, name: str, desc: str = ''):
+def save_image(img: Image, name: str, desc: str, cr_data: Dict):
 
-    meta = add_copyright_meta(img, desc)
+    meta = add_copyright_meta(img, desc, cr_data)
     img.save(name, exif=meta.tobytes())
 
 
-def save_object(img: Image, dest_dir: str, object_name: str, date: Optional[datetime] = None) -> str:
+def save_object(img: Image,
+                dest_dir: str,
+                object_name: str,
+                date: Optional[datetime] = None,
+                cr_data: Optional[Dict] = None) -> str:
 
     if not date:
         date = image_date(img)
+
+    if not cr_data:
+        cr_data = {}
+
     name = slugify(f'{object_name}-{date.year:04}{date.month:02}{date.day:02}')
     path_prefix = f'{dest_dir}/' if dest_dir else ''
-    save_image(img, name=f'{path_prefix}{name}.jpg', desc=f'Sketch of {object_name}')
+    save_image(img, name=f'{path_prefix}{name}.jpg', desc=f'Sketch of {object_name}', cr_data=cr_data)
     return f'{name}.jpg'
 
 
 def split_cmd(args) -> Dict:
+
+    if args.copyright_file:
+        cr_data = load_copyright_data(args.copyright_file)
+    else:
+        cr_data = None
 
     src = Image.open(args.source_image)
 
@@ -240,7 +271,8 @@ def split_cmd(args) -> Dict:
                                   args.y_offset,
                                   args.scale,
                                   simple_resize=args.simple,
-                                  split=not args.full_page)
+                                  split=not args.full_page,
+                                  cr_data=cr_data)
 
     if args.show:
         cropped.show()
@@ -293,12 +325,13 @@ def split_cmd(args) -> Dict:
 
 def copyright_cmd(args):
 
+    cr_data = load_copyright_data(args.copyright_file)
     src = Image.open(args.source_image)
 
     print(f'Source image: {args.source_image}')
     print_meta(src)
 
-    img = add_copyright_img(src)
+    img = add_copyright_img(src, cr_data)
     if args.show:
         img.show()
     if args.out:
@@ -308,7 +341,7 @@ def copyright_cmd(args):
         out_file = name
 
     print(f'Saving to {out_file} ...')
-    save_image(img, out_file)
+    save_image(img, out_file, '', cr_data)
 
 
 def main():
@@ -330,10 +363,12 @@ def main():
     split.add_argument('-w', '--show', action='store_true')
     split.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
                        action='store_true')
+    split.add_argument('-c', '--copyright-file')
     split.set_defaults(func=split_cmd)
 
     cr = cmd.add_parser("copyright")
     cr.add_argument('source_image')
+    cr.add_argument('-c', '--copyright-file', required=True)
     cr.add_argument('-w', '--show', action='store_true')
     cr.add_argument('-o', '--out')
     cr.set_defaults(func=copyright_cmd)
