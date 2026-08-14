@@ -10,7 +10,6 @@ import project
 import argparse
 from copy import copy
 from natsort import natsorted
-from operator import itemgetter
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 import yaml
@@ -20,6 +19,12 @@ DEFAULT_LOCATION = 'Dunaharaszti, HU'
 
 project_root: str = ''
 
+def load_meta() -> Dict:
+    with open(project.meta_file(project_root), encoding='utf8') as f:
+        data = yaml.safe_load(f)
+        assert isinstance(data, dict)
+        return data
+
 
 def write_file(cat: str, name: str, content: str):
 
@@ -28,9 +33,9 @@ def write_file(cat: str, name: str, content: str):
     out_path.write_text(content, encoding='utf8')
 
 
-def sketch_of_obs(db: List[SketchData], obs: ObsData) -> SketchData:
+def sketch_of_obs(sketch_db: List[SketchData], obs: ObsData) -> SketchData:
 
-    res = [s for s in db if obs.img in s.sub or obs.img == s.full]
+    res = [s for s in sketch_db if obs.img in s.sub or obs.img == s.full]
 
     assert len(res) == 1
     return res[0]
@@ -108,7 +113,11 @@ def obs_page_name(obs: ObsData) -> str:
     return common.obs_page_name(obs.names, common.obs_day(obs.date))
 
 
-def generate_obs(obs: ObsData, obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[str, Object]):
+def generate_obs(obs: ObsData,
+                 obs_db: List[ObsData],
+                 sketch_db: List[SketchData],
+                 object_db: Dict[str, Object],
+                 meta: Dict):
 
     img = project.image_url(obs.img)
 
@@ -117,7 +126,7 @@ def generate_obs(obs: ObsData, obs_db: List[ObsData], sketch_db: List[SketchData
     content_links.update(nav_links)
 
     data = copy(obs)
-    data.loc = obs.loc if obs.loc else DEFAULT_LOCATION
+    data.loc = obs.loc if obs.loc else meta.get('default_location', 'somewhere...')
 
     content = pages.observation_page(obs_data=data,
                                      img=img,
@@ -159,7 +168,7 @@ def load_md(file: str) -> List[str]:
     print(f'Loading {file} ...')
 
     try:
-        text = Path(file).read_text()
+        text = Path(file).read_text(encoding='utf8')
         return text.splitlines()
     except Exception:
         print(f'Unable to read {file}, skipping content')
@@ -196,19 +205,25 @@ def regen(obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[st
 
     print('Generating ...')
 
+    meta = load_meta()
+
     for obs in obs_db:
-        generate_obs(obs=obs, obs_db=obs_db, sketch_db=sketch_db, object_db=object_db)
+        generate_obs(obs=obs,
+                     obs_db=obs_db,
+                     sketch_db=sketch_db,
+                     object_db=object_db,
+                     meta=meta)
 
     generate_obs_log(obs_db)
     generate_index(obs_db=obs_db, object_db=object_db)
     generate_main(obs_db)
 
 
-def load(db: str) -> Union[Dict, List]:
+def load(db_file: str) -> Union[Dict, List]:
 
-    print(f'Loading {db} ...')
+    print(f'Loading {db_file} ...')
 
-    with open(db) as f:
+    with open(db_file, encoding='utf8') as f:
         data = yaml.safe_load(f)
         assert isinstance(data, dict) or isinstance(data, list)
         return data
