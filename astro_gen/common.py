@@ -88,8 +88,11 @@ def pretty_name_str(name: Union[str, List[str]]) -> str:
 
 
 def short_desc(obj_data: Object) -> str:
-    if not obj_data:
+    if not obj_data.type:
         return ''
+
+    if not obj_data.constellation:
+        return obj_data.type
 
     if constellations.is_constellation(obj_data.constellation):
         return f'{obj_data.type} in {constellations.name(obj_data.constellation)}'

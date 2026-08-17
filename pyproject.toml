@@ -41,3 +41,6 @@ packages = ["astro_gen"]
 
 [tool.setuptools.dynamic]
 version = {attr = "astro_gen.meta.git_describe_version"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
