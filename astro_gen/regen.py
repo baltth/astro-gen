@@ -7,33 +7,28 @@ from . import index
 from . import pages
 from . import project
 
-import argparse
 from copy import copy
 from natsort import natsorted
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 import yaml
 
 
-DEFAULT_LOCATION = 'Dunaharaszti, HU'
-
-project_root: str = ''
-
-def load_meta() -> Dict:
-    with open(project.meta_file(project_root), encoding='utf8') as f:
+def _load_meta(root: str) -> Dict:
+    with open(project.meta_file(root), encoding='utf8') as f:
         data = yaml.safe_load(f)
         assert isinstance(data, dict)
         return data
 
 
-def write_file(cat: str, name: str, content: str):
+def _write_file(root: str, cat: str, name: str, content: str):
 
-    doc_root = Path(project.site_root(project_root))
+    doc_root = Path(project.site_root(root))
     out_path = doc_root / cat / name
     out_path.write_text(content, encoding='utf8')
 
 
-def sketch_of_obs(sketch_db: List[SketchData], obs: ObsData) -> SketchData:
+def _sketch_of_obs(sketch_db: List[SketchData], obs: ObsData) -> SketchData:
 
     res = [s for s in sketch_db if obs.img in s.sub or obs.img == s.full]
 
@@ -41,17 +36,17 @@ def sketch_of_obs(sketch_db: List[SketchData], obs: ObsData) -> SketchData:
     return res[0]
 
 
-def object_data(object_db: Dict[str, Object], names: List[str]) -> Dict[str, Object]:
+def _object_data(object_db: Dict[str, Object], names: List[str]) -> Dict[str, Object]:
 
     return {n: object_db[n] for n in names if n in object_db.keys()}
 
 
-def all_observations_of(name: str, obs_db: List[ObsData]) -> List[ObsData]:
+def _all_observations_of(name: str, obs_db: List[ObsData]) -> List[ObsData]:
 
     return [obs for obs in obs_db if name in obs.names]
 
 
-def get_prev_next_obs_index(ref: ObsData, obs_list: List[ObsData]) -> Tuple[int, int]:
+def _get_prev_next_obs_index(ref: ObsData, obs_list: List[ObsData]) -> Tuple[int, int]:
 
     if len(obs_list) < 2:
         return (-1, -1)
@@ -62,25 +57,25 @@ def get_prev_next_obs_index(ref: ObsData, obs_list: List[ObsData]) -> Tuple[int,
     return (prev_i, next_i)
 
 
-def other_obs_link_data(obs: ObsData) -> Tuple[str, str, str]:
+def _other_obs_link_data(obs: ObsData) -> Tuple[str, str, str]:
     date = common.obs_day(obs.date)
     return (common.pretty_name_str(obs.names), date, project.obs_page_url(obs.names, date))
 
 
-def get_nav_links(obs: ObsData,
-                  obs_db: List[ObsData]) -> Dict[str, str]:
+def _get_nav_links(obs: ObsData,
+                   obs_db: List[ObsData]) -> Dict[str, str]:
 
     other_obs_before = []
     other_obs_after = []
     for n in obs.names:
-        other_obs = all_observations_of(n, obs_db=obs_db)
+        other_obs = _all_observations_of(n, obs_db=obs_db)
         if other_obs:
             other_obs = natsorted(other_obs, key=lambda o: o.date)
-            prev_i, next_i = get_prev_next_obs_index(obs, other_obs)
+            prev_i, next_i = _get_prev_next_obs_index(obs, other_obs)
             if prev_i >= 0:
-                other_obs_before.append(other_obs_link_data(other_obs[prev_i]))
+                other_obs_before.append(_other_obs_link_data(other_obs[prev_i]))
             if next_i >= 0:
-                other_obs_after.append(other_obs_link_data(other_obs[next_i]))
+                other_obs_after.append(_other_obs_link_data(other_obs[next_i]))
 
     def other_links(other: List[Tuple], prefix: str) -> Dict[str, str]:
         return {f'{prefix}: {o[0]} on {o[1]}': o[2] for o in other}
@@ -95,10 +90,10 @@ def get_nav_links(obs: ObsData,
     return links
 
 
-def get_links_notes(obs: ObsData,
-                    sketch_db: List[SketchData]) -> Tuple[Dict, str]:
+def _get_links_notes(obs: ObsData,
+                     sketch_db: List[SketchData]) -> Tuple[Dict, str]:
 
-    sketch = sketch_of_obs(sketch_db, obs)
+    sketch = _sketch_of_obs(sketch_db, obs)
     links = {
         'Full sketch': project.image_url(sketch.full)
     }
@@ -109,20 +104,21 @@ def get_links_notes(obs: ObsData,
     return (links, sketch.notes)
 
 
-def obs_page_name(obs: ObsData) -> str:
+def _obs_page_name(obs: ObsData) -> str:
     return common.obs_page_name(obs.names, common.obs_day(obs.date))
 
 
-def generate_obs(obs: ObsData,
-                 obs_db: List[ObsData],
-                 sketch_db: List[SketchData],
-                 object_db: Dict[str, Object],
-                 meta: Dict):
+def _generate_obs(root: str,
+                  obs: ObsData,
+                  obs_db: List[ObsData],
+                  sketch_db: List[SketchData],
+                  object_db: Dict[str, Object],
+                  meta: Dict):
 
     img = project.image_url(obs.img)
 
-    nav_links = get_nav_links(obs=obs, obs_db=obs_db)
-    content_links, notes = get_links_notes(obs=obs, sketch_db=sketch_db)
+    nav_links = _get_nav_links(obs=obs, obs_db=obs_db)
+    content_links, notes = _get_links_notes(obs=obs, sketch_db=sketch_db)
     content_links.update(nav_links)
 
     data = copy(obs)
@@ -133,37 +129,37 @@ def generate_obs(obs: ObsData,
                                      notes=notes,
                                      nav_links=nav_links,
                                      content_links=content_links,
-                                     object_data=object_data(object_db, data.names))
+                                     object_data=_object_data(object_db, data.names))
 
-    write_file('obs', obs_page_name(data), content)
+    _write_file(root, 'obs', _obs_page_name(data), content)
 
 
-def obs_log_data(obs_db: List[ObsData], from_main: bool) -> List:
+def _obs_log_data(obs_db: List[ObsData], from_main: bool) -> List:
 
     def row(date: str, names: List[str]) -> List[str]:
         obs_day = common.obs_day(date)
         return pages.log_row(names, obs_day, from_main)
-    
+
     rev_sorted_data = sorted(((o.date, o.names) for o in obs_db), reverse=True)
     return [row(o[0], o[1]) for o in rev_sorted_data]
 
 
-def generate_obs_log(obs_db: List[ObsData]):
+def _generate_obs_log(root: str, obs_db: List[ObsData]):
 
     content = pages.index_page(title='All observations',
-                               data=obs_log_data(obs_db, from_main=False))
-    write_file('pages', 'log.md', content)
+                               data=_obs_log_data(obs_db, from_main=False))
+    _write_file(root, 'pages', 'log.md', content)
 
 
-def generate_index(obs_db: List[ObsData], object_db: Dict[str, Object]):
+def _generate_index(root: str, obs_db: List[ObsData], object_db: Dict[str, Object]):
 
     content = pages.page(title='Index',
                          content=index.index_content(obs_db=obs_db, object_db=object_db),
                          toc_level=2)
-    write_file('pages', 'obj_index.md', content)
+    _write_file(root, 'pages', 'obj_index.md', content)
 
 
-def load_md(file: str) -> List[str]:
+def _load_md(file: str) -> List[str]:
 
     print(f'Loading {file} ...')
 
@@ -175,12 +171,12 @@ def load_md(file: str) -> List[str]:
         return []
 
 
-def generate_main(obs_db: List[ObsData]):
+def _generate_main(root: str, obs_db: List[ObsData]):
 
-    latest_obs = obs_log_data(obs_db, from_main=True)[:10]
+    latest_obs = _obs_log_data(obs_db, from_main=True)[:10]
 
-    main_pre = load_md(project.main_pre_file(project_root))
-    main_post = load_md(project.main_post_file(project_root))
+    main_pre = _load_md(project.main_pre_file(root))
+    main_post = _load_md(project.main_post_file(root))
 
     content = main_pre + pages.SEPARATOR
 
@@ -198,59 +194,41 @@ def generate_main(obs_db: List[ObsData]):
 
     content += main_post
 
-    write_file('', 'index.md', pages.join(content))
+    _write_file(root, '', 'index.md', pages.join(content))
 
 
-def regen(obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[str, Object]):
+def _regen_from_dbs(root: str, obs_db: List[ObsData], sketch_db: List[SketchData], object_db: Dict[str, Object]):
 
     print('Generating ...')
 
-    meta = load_meta()
+    meta = _load_meta(root=root)
 
     for obs in obs_db:
-        generate_obs(obs=obs,
-                     obs_db=obs_db,
-                     sketch_db=sketch_db,
-                     object_db=object_db,
-                     meta=meta)
+        _generate_obs(root=root,
+                      obs=obs,
+                      obs_db=obs_db,
+                      sketch_db=sketch_db,
+                      object_db=object_db,
+                      meta=meta)
 
-    generate_obs_log(obs_db)
-    generate_index(obs_db=obs_db, object_db=object_db)
-    generate_main(obs_db)
-
-
-def load(db_file: str) -> Union[Dict, List]:
-
-    print(f'Loading {db_file} ...')
-
-    with open(db_file, encoding='utf8') as f:
-        data = yaml.safe_load(f)
-        assert isinstance(data, dict) or isinstance(data, list)
-        return data
+    _generate_obs_log(root=root, obs_db=obs_db)
+    _generate_index(root=root,
+                    obs_db=obs_db,
+                    object_db=object_db)
+    _generate_main(root=root, obs_db=obs_db)
 
 
-def main():
+def regen(project_root: str):
 
-    parser = argparse.ArgumentParser()
-    parser.description = 'Regenerate pages'
-    parser.add_argument('project_root', help='Root folder of project to generate')
-    args = parser.parse_args()
+    print(f'Project path: {project_root}')
 
-    print(f'Project path: {args.project_root}')
+    sketches = db.sketches(project_root)
+    observations = db.observations(project_root)
+    objects = db.objects(project_root)
 
-    sketches = db.sketches(args.project_root)
-    observations = db.observations(args.project_root)
-    objects = db.objects(args.project_root)
-
-    global project_root
-    project_root = args.project_root
-
-    regen(obs_db=observations,
-          sketch_db=sketches,
-          object_db=objects)
+    _regen_from_dbs(root=project_root,
+                    obs_db=observations,
+                    sketch_db=sketches,
+                    object_db=objects)
 
     print('Done')
-
-
-if __name__ == "__main__":
-    main()

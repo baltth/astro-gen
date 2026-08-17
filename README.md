@@ -89,7 +89,7 @@ Fill the observation details in `db/obs.yml` and modify object data in `db/obs.y
 Generate Markdown pages with
 
 ```sh
-./script/regen.py path/to/project
+astro-gen path/to/project regen
 ```
 
 This adds or refreshes all `.md` content in `path/to/project/docs`. 

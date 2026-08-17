@@ -2,16 +2,10 @@
 
 from .datatypes import ObjectData
 
-import argparse
 import base64
-from dataclasses import asdict
-import json
 from os import environ
 import requests
-from sys import stdout
 from typing import Dict, List, Optional, Tuple
-
-from ruamel.yaml import YAML
 
 
 def astronomyapi_access() -> Tuple[str, str]:
@@ -36,7 +30,8 @@ def astronomyapi_get(ep: str,
 
     resp = requests.get(url=f'{URL}/{ep}',
                         params=params,
-                        headers=headers)
+                        headers=headers,
+                        timeout=10)
 
     resp.raise_for_status()
     return resp.json()['data']
@@ -94,38 +89,3 @@ def fetch(name: str,
         return map_data(data)
 
     return None
-
-
-def main():
-
-    parser = argparse.ArgumentParser()
-    parser.description = 'Fetch astronomyapi.com'
-
-    parser.add_argument('object')
-    parser.add_argument('-j', '--json', action='store_true')
-    args = parser.parse_args()
-
-    app_id, secret = astronomyapi_access()
-    if not app_id:
-        print('Please define ASTRONOMYAPI_ID and ASTRONOMYAPI_SECRET environment variables')
-        return 1
-
-    fetched = fetch(args.object, app_id=app_id, app_secret=secret)
-    if not fetched:
-        print(f'No object found: {args.object}')
-        return 0
-
-    d = asdict(fetched)
-    if not d['spectral_class']:
-        del d['spectral_class']
-
-    if args.json:
-        print(json.dumps(d, indent=2) + '\n')
-    else:
-        yaml = YAML(typ='safe')
-        yaml.sort_base_mapping_type_on_output = False
-        yaml.dump(d, stream=stdout)
-
-
-if __name__ == "__main__":
-    main()

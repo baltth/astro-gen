@@ -6,9 +6,9 @@ from . import db
 from . import fetch
 from . import proc_image
 from . import project
+from . import regen
 
 import argparse
-from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from shutil import copy as cp
@@ -17,33 +17,43 @@ import sys
 from typing import Dict
 
 
-def add_images(args: argparse.Namespace) -> Dict:
+def _add_images(project_root: str,
+                img: str,
+                scan: str = '',
+                x_offset: int = 0,
+                y_offset: int = 0,
+                scale: float = 1.0,
+                first_object: str = '',
+                second_object: str = '',
+                full_page: bool = False,
+                simple: bool = False) -> Dict:
 
     print('Processing images ...')
 
-    meta_file = project.meta_file(args.project_root)
+    meta_file = project.meta_file(project_root)
+    has_meta = Path(meta_file).is_file()
 
-    split_args = deepcopy(args)
-    setattr(split_args, 'source_image', args.img)
-    setattr(split_args, 'dest',  project.site_images(args.project_root))
-    setattr(split_args, 'show', False)
-    
-    if Path(meta_file).is_file():
-        setattr(split_args, 'copyright_file', meta_file)
+    db_data = proc_image.split_cmd(source_image=img,
+                                   dest=project.site_images(project_root),
+                                   x_offset=x_offset,
+                                   y_offset=y_offset,
+                                   scale=scale,
+                                   first_object=first_object,
+                                   second_object=second_object,
+                                   full_page=full_page,
+                                   simple=simple,
+                                   show=False,
+                                   copyright_file=meta_file if has_meta else '')
 
-    db_data = proc_image.split_cmd(split_args)
+    if scan:
+        scan_file = Path(scan).parts[-1]
+        out_path = f'{project.site_root(project_root)}/scan/{scan_file}'
 
-    if args.scan:
-        cr_args = deepcopy(args)
-        scan_file = Path(args.scan).parts[-1]
-        out_path = f'{project.site_root(args.project_root)}/scan/{scan_file}'
-
-        if Path(meta_file).is_file():
-            setattr(cr_args, 'source_image', args.scan)
-            setattr(cr_args, 'out', out_path)
-            setattr(cr_args, 'show', False)
-            setattr(cr_args, 'copyright_file', meta_file)
-            proc_image.copyright_cmd(cr_args)
+        if has_meta:
+            proc_image.copyright_cmd(source_image=scan,
+                                     copyright_file=meta_file,
+                                     out=out_path,
+                                     show=False)
         else:
             cp(scan_file, out_path)
 
@@ -52,7 +62,7 @@ def add_images(args: argparse.Namespace) -> Dict:
     return db_data
 
 
-def add_sketch(root: str, data: Dict, cmd: str = ''):
+def _add_sketch(root: str, data: Dict, cmd: str = ''):
 
     print('Add sketches ...')
 
@@ -71,7 +81,7 @@ def add_sketch(root: str, data: Dict, cmd: str = ''):
                   cmd=[cmd])
 
 
-def add_observation(root: str, name: str, img_date: datetime):
+def _add_observation(root: str, name: str, img_date: datetime):
 
     print(f'Add observation for {name} ...')
 
@@ -99,7 +109,7 @@ def fetch_astronomyapi_on_demand(name: str) -> Dict[str, ObjectData]:
     return data
 
 
-def add_objects(root: str, name: str):
+def _add_objects(root: str, name: str):
 
     print(f'Add object data for {name} ...')
 
@@ -107,49 +117,66 @@ def add_objects(root: str, name: str):
     db.add_objects(root, name=name, fetched=fetched)
 
 
-def add_cmd(args: argparse.Namespace):
+def add(project_root: str,
+        img: str,
+        scan: str = '',
+        x_offset: int = 0,
+        y_offset: int = 0,
+        scale: float = 1.0,
+        first_object: str = '',
+        second_object: str = '',
+        full_page: bool = False,
+        simple: bool = False,
+        cmd: str = ''):
 
-    sketch_data = add_images(args)
-    add_sketch(root=args.project_root, data=sketch_data)
+    sketch_data = _add_images(project_root=project_root,
+                              img=img,
+                              scan=scan,
+                              x_offset=x_offset,
+                              y_offset=y_offset,
+                              scale=scale,
+                              first_object=first_object,
+                              second_object=second_object,
+                              full_page=full_page,
+                              simple=simple)
 
-    if args.first_object:
-        add_observation(root=args.project_root,
-                        name=args.first_object,
-                        img_date=sketch_data['img_date'])
-        add_objects(root=args.project_root,
-                    name=args.first_object)
+    _add_sketch(root=project_root, data=sketch_data, cmd=cmd)
 
-    if args.second_object:
-        add_observation(root=args.project_root,
-                        name=args.second_object,
-                        img_date=sketch_data['img_date'])
-        add_objects(root=args.project_root,
-                    name=args.second_object)
+    for obj in [first_object, second_object]:
+        if obj:
+            _add_observation(root=project_root,
+                             name=obj,
+                             img_date=sketch_data['img_date'])
+            _add_objects(root=project_root,
+                         name=obj)
 
 
-def fetch_cmd(args: argparse.Namespace):
+def fetch_objects(project_root: str,
+                  obj: str,
+                  name: str = '',
+                  component: str = ''):
 
-    fetch_name = args.name if args.name else args.object
+    fetch_name = name if name else obj
     fetched = fetch_astronomyapi_on_demand(fetch_name)
     print(fetched)
     if fetched:
 
-        if args.component:
-            fetch_map = {args.component: fetch_name}
+        if component:
+            fetch_map = {component: fetch_name}
         else:
             fetch_map = {fetch_name: fetch_name}
 
-        print(f'Add object data for {args.object} ...')
-        db.add_objects(root=args.project_root,
-                       name=args.object,
+        print(f'Add object data for {obj} ...')
+        db.add_objects(root=project_root,
+                       name=obj,
                        fetched=fetched,
-                       fetch_map={args.object: fetch_map},
+                       fetch_map={obj: fetch_map},
                        refresh=True)
     else:
         print(f'No data for {fetch_name}')
 
 
-def reproc_one(sketch: Dict, args):
+def _reproc_one(sketch: Dict, project_root: str):
 
     print(f'Reprocessing sketch {sketch['full']} ...')
 
@@ -165,10 +192,19 @@ def reproc_one(sketch: Dict, args):
             cmd = shsplit(c)[1:]
             print(f'Args were {shjoin(cmd)}')
             proc_args = arg_parser().parse_args(cmd)
-            proc_args.project_root = args.project_root
 
-            sketch_data = add_images(proc_args)
-            add_sketch(root=args.project_root, data=sketch_data, cmd=c)
+            sketch_data = _add_images(project_root=project_root,
+                                      img=proc_args.img,
+                                      scan=proc_args.scan,
+                                      x_offset=proc_args.x_offset,
+                                      y_offset=proc_args.y_offset,
+                                      scale=proc_args.scale,
+                                      first_object=proc_args.first_object,
+                                      second_object=proc_args.second_object,
+                                      full_page=proc_args.full_page,
+                                      simple=proc_args.simple)
+
+            _add_sketch(root=project_root, data=sketch_data, cmd=c)
 
         except Exception as e:
             print(e)
@@ -176,24 +212,56 @@ def reproc_one(sketch: Dict, args):
             print(c)
 
 
-def reproc_cmd(args: argparse.Namespace):
+def reproc(project_root: str, sketch: str = ''):
 
-    sketches = db.sketches_raw(args.project_root)
+    sketches = db.sketches_raw(project_root)
 
-    if args.sketch:
-        basename = Path(args.sketch).name
+    if sketch:
+        basename = Path(sketch).name
         found = [s for s in sketches if s['full'] == basename]
         if not found:
             print(f'No sketch found with full name {basename}')
         elif len(found) > 1:
             print(f'Error: multiple sketches found with full name {basename}')
         else:
-            reproc_one(found[0], args)
+            _reproc_one(sketch=found[0], project_root=project_root)
     else:
         print('Reprocessing all sketches ...')
         for s in sketches:
             print('--------')
-            reproc_one(s, args)
+            _reproc_one(sketch=s, project_root=project_root)
+
+
+def _regen_cmd(args: argparse.Namespace):
+    regen.regen(project_root=args.project_root)
+
+
+def _add_cmd(args: argparse.Namespace):
+
+    add(project_root=args.project_root,
+        img=args.img,
+        scan=args.scan,
+        x_offset=args.x_offset,
+        y_offset=args.y_offset,
+        scale=args.scale,
+        first_object=args.first_object,
+        second_object=args.second_object,
+        full_page=args.full_page,
+        simple=args.simple)
+
+
+def _fetch_cmd(args: argparse.Namespace):
+
+    fetch_objects(project_root=args.project_root,
+                  obj=args.object,
+                  name=args.name,
+                  component=args.component)
+
+
+def _reproc_cmd(args: argparse.Namespace):
+
+    reproc(project_root=args.project_root,
+           sketch=args.sketch)
 
 
 def arg_parser() -> argparse.ArgumentParser:
@@ -203,6 +271,9 @@ def arg_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('project_root', help='Root folder of project to generate')
     cmd = parser.add_subparsers(title='Commands')
+
+    regen_parser = cmd.add_parser('regen', help='Regenerate pages')
+    regen_parser.set_defaults(func=_regen_cmd)
 
     add_parser = cmd.add_parser('add', help='Add new observations')
     add_parser.add_argument('-i', '--img', help='Source image')
@@ -215,17 +286,17 @@ def arg_parser() -> argparse.ArgumentParser:
     add_parser.add_argument('--full-page', action='store_true')
     add_parser.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
                             action='store_true')
-    add_parser.set_defaults(func=add_cmd)
+    add_parser.set_defaults(func=_add_cmd)
 
     fetch_parser = cmd.add_parser('fetch', help='Fetch object data from astronomyapi.com')
     fetch_parser.add_argument('object')
     fetch_parser.add_argument('-n', '--name', help='Alias on astronomyapi.com', default='')
     fetch_parser.add_argument('-c', '--component', help='Add as component', default='')
-    fetch_parser.set_defaults(func=fetch_cmd)
+    fetch_parser.set_defaults(func=_fetch_cmd)
 
     reproc_parser = cmd.add_parser('reproc', help='Reprocess previously added images')
     reproc_parser.add_argument('-s', '--sketch', help='Sketch file', default='')
-    reproc_parser.set_defaults(func=reproc_cmd)
+    reproc_parser.set_defaults(func=_reproc_cmd)
 
     return parser
 
