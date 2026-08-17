@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import common
+from . import common
 
 from pathlib import Path
 from typing import List, Union

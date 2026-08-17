@@ -1,3 +1,8 @@
 .venv*
+build
 __pycache__
+*.egg-info
+.mypy_cache
 .vscode
+.coverage
+.pytest_cache

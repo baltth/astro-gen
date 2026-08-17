@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 from tempfile import mkstemp
 from copy import deepcopy
 from datetime import datetime
@@ -237,7 +236,7 @@ def save_image(img: Image, name: str, desc: str, cr_data: Dict):
 
     name_as_path = Path(name)
     if name_as_path.is_file():
-        for i in range(2,6):
+        for i in range(2, 6):
             s = name_as_path.suffix
             n = name.removesuffix(s)
             maybe_name = f'{n}-{i}{s}'
@@ -246,7 +245,7 @@ def save_image(img: Image, name: str, desc: str, cr_data: Dict):
         name = maybe_name
 
     print(f'Saving to {name} ...')
-    
+
     meta = add_copyright_meta(img, desc, cr_data)
     img.save(name, exif=meta.tobytes())
 
@@ -269,27 +268,37 @@ def save_object(img: Image,
     return f'{name}.jpg'
 
 
-def split_cmd(args) -> Dict:
+def split_cmd(source_image: str,
+              dest: str = '',
+              x_offset: int = 0,
+              y_offset: int = 0,
+              scale: float = 1.0,
+              first_object: str = '',
+              second_object: str = '',
+              full_page: bool = False,
+              simple: bool = False,
+              show: bool = False,
+              copyright_file: str = '') -> Dict:
 
-    if args.copyright_file:
-        cr_data = load_copyright_data(args.copyright_file)
+    if copyright_file:
+        cr_data = load_copyright_data(copyright_file)
     else:
         cr_data = None
 
-    src = Image.open(args.source_image)
+    src = Image.open(source_image)
 
-    print(f'Source image: {args.source_image}')
+    print(f'Source image: {source_image}')
     print_meta(src)
 
     cropped, img1, img2 = process(src,
-                                  args.x_offset,
-                                  args.y_offset,
-                                  args.scale,
-                                  simple_resize=args.simple,
-                                  split=not args.full_page,
+                                  x_offset,
+                                  y_offset,
+                                  scale,
+                                  simple_resize=simple,
+                                  split=not full_page,
                                   cr_data=cr_data)
 
-    if args.show:
+    if show:
         cropped.show()
         img1.show()
         if img2:
@@ -300,37 +309,37 @@ def split_cmd(args) -> Dict:
     db_data = {}
     db_data['img_date'] = date
 
-    if args.first_object:
+    if first_object:
         n = save_object(img=img1,
-                        dest_dir=args.dest,
-                        object_name=args.first_object,
+                        dest_dir=dest,
+                        object_name=first_object,
                         date=date)
-        db_data['first_name'] = args.first_object
+        db_data['first_name'] = first_object
         db_data['first_img'] = n
 
-        if args.second_object == args.first_object:
-            args.second_object += ' 2nd'
+        if second_object == first_object:
+            second_object += ' 2nd'
 
-    if args.second_object:
-        assert not args.full_page
+    if second_object:
+        assert not full_page
         assert img2
 
         n = save_object(img=img2,
-                        dest_dir=args.dest,
-                        object_name=args.second_object,
+                        dest_dir=dest,
+                        object_name=second_object,
                         date=date)
-        db_data['second_name'] = args.first_object
+        db_data['second_name'] = first_object
         db_data['second_img'] = n
 
-    if args.first_object and not args.second_object:
-        full_name = f'{args.first_object} NA'
-    elif args.second_object and not args.first_object:
-        full_name = f'NA {args.second_object}'
+    if first_object and not second_object:
+        full_name = f'{first_object} NA'
+    elif second_object and not first_object:
+        full_name = f'NA {second_object}'
     else:
-        full_name = f'{args.first_object} {args.second_object}'
+        full_name = f'{first_object} {second_object}'
 
     n = save_object(img=cropped,
-                    dest_dir=args.dest,
+                    dest_dir=dest,
                     object_name=full_name,
                     date=date)
     db_data['cropped_img'] = n
@@ -338,58 +347,24 @@ def split_cmd(args) -> Dict:
     return db_data
 
 
-def copyright_cmd(args):
+def copyright_cmd(source_image: str,
+                  copyright_file: str,
+                  out: str = '',
+                  show: bool = False):
 
-    cr_data = load_copyright_data(args.copyright_file)
-    src = Image.open(args.source_image)
+    cr_data = load_copyright_data(copyright_file)
+    src = Image.open(source_image)
 
-    print(f'Source image: {args.source_image}')
+    print(f'Source image: {source_image}')
     print_meta(src)
 
     img = add_copyright_img(src, cr_data)
-    if args.show:
+    if show:
         img.show()
-    if args.out:
-        out_file = args.out
+    if out:
+        out_file = out
     else:
         _, name = mkstemp(suffix='.jpg')
         out_file = name
 
     save_image(img, out_file, '', cr_data)
-
-
-def main():
-
-    parser = argparse.ArgumentParser()
-    parser.description = 'Split and annotate sketches of the sky'
-
-    cmd = parser.add_subparsers()
-
-    split = cmd.add_parser("split")
-    split.add_argument('source_image')
-    split.add_argument('-d', '--dest', default='')
-    split.add_argument('-x', '--x-offset', type=int, default=0)
-    split.add_argument('-y', '--y-offset', type=int, default=0)
-    split.add_argument('-s', '--scale', type=float, default=1.0)
-    split.add_argument('-o1', '--first-object', default='')
-    split.add_argument('-o2', '--second-object', default='')
-    split.add_argument('--full-page', action='store_true')
-    split.add_argument('-w', '--show', action='store_true')
-    split.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
-                       action='store_true')
-    split.add_argument('-c', '--copyright-file')
-    split.set_defaults(func=split_cmd)
-
-    cr = cmd.add_parser("copyright")
-    cr.add_argument('source_image')
-    cr.add_argument('-c', '--copyright-file', required=True)
-    cr.add_argument('-w', '--show', action='store_true')
-    cr.add_argument('-o', '--out')
-    cr.set_defaults(func=copyright_cmd)
-
-    args = parser.parse_args()
-    args.func(args)
-
-
-if __name__ == "__main__":
-    main()

@@ -12,6 +12,22 @@ and its [source](https://github.com/baltth/astro).
 
 ---
 
+## Installation
+
+- Create a _Python3 venv_:
+  ```sh
+  Python3 -m venv .venv
+  ```
+- Activate it:
+  ```sh
+  . .venv/bin/activate
+  ```
+- Install the python module:
+  ```sh
+  pip3 install .
+  ```
+  > Run `pip3 install -e '.[dev]'` to add developer packages
+
 ### Requirements
 
 - _pyhton3 venv_ with packages
@@ -49,10 +65,10 @@ Assuming
 - to be cropped with offset _50, 185,_
 - about objects _M35_ and _11 Aql_,
 
-run the command
+run the command in the _venv:_
 
 ```sh
-./script/astro_gen.py path/to/project add -i path/to/obs.jpg -c path/to/scan.jpg -x 50 -y 185 -o1 M35 -o2 '11 Aql'
+astro-gen path/to/project add -i path/to/obs.jpg -c path/to/scan.jpg -x 50 -y 185 -o1 M35 -o2 '11 Aql'
 ```
 
 This adds image files to `path/to/project/docs/img` and `path/to/project/docs/scan`.
@@ -73,7 +89,7 @@ Fill the observation details in `db/obs.yml` and modify object data in `db/obs.y
 Generate Markdown pages with
 
 ```sh
-./script/regen.py path/to/project
+astro-gen path/to/project regen
 ```
 
 This adds or refreshes all `.md` content in `path/to/project/docs`. 

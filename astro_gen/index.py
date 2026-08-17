@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import common
-from datatypes import ObsData, Object
-import constellations
-import pages
+from . import common
+from .datatypes import ObsData, Object
+from . import constellations
+from . import pages
 
 from collections import OrderedDict
 from natsort import natsorted
