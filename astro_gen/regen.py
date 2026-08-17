@@ -22,9 +22,9 @@ def _load_meta(root: str) -> Dict:
 
 
 def _write_file(root: str, cat: str, name: str, content: str):
-
     doc_root = Path(project.site_root(root))
     out_path = doc_root / cat / name
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(content, encoding='utf8')
 
 
