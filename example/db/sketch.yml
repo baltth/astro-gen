@@ -10,14 +10,13 @@
 # '_cmd': commands for generating the files, optional [list of strings]
 
 sketches:
-
   - full: c47-alpha-umi-20260816.jpg
     scan: cluster_double_star.jpg
     sub:
       - c47-20260816.jpg
       - alpha-umi-20260816.jpg
     _cmd:
-      - ./script/astro_gen.py ./examle add -i ./examle/orig/cluster_double_star_inv.jpg -c ./examle/orig/cluster_double_star.jpg -x 65 -y 170 -o1 C47 -o2 
+      - ./script/astro_gen.py ./example add -i ./example/orig/cluster_double_star_inv.jpg -c ./example/orig/cluster_double_star.jpg -x 65 -y 170 -o1 C47 -o2
         'Alpha UMi'
 
   - full: c-2025-r3-alpha-umi-20260816.jpg
@@ -26,10 +25,10 @@ sketches:
       - c-2025-r3-20260816.jpg
       - alpha-umi-20260816-2.jpg
     _cmd:
-      - ./script/astro_gen.py ./examle add -i ./examle/orig/comet_double_star_inv.jpg -c ./examle/orig/comet_double_star.jpg -x 65 -y 170 -o1 'C/2025 R3' -o2 
+      - ./script/astro_gen.py ./example add -i ./example/orig/comet_double_star_inv.jpg -c ./example/orig/comet_double_star.jpg -x 65 -y 170 -o1 'C/2025 R3' -o2
         'Alpha UMi'
     notes: |
-      [sketch notes] 
+      [sketch notes]
 
   - full: gassendi-archimedes-20260816.jpg
     scan: craters.jpg
@@ -37,7 +36,7 @@ sketches:
       - gassendi-20260816.jpg
       - archimedes-20260816.jpg
     _cmd:
-      - ./script/astro_gen.py ./examle add -i ./examle/orig/craters.jpg -c ./examle/orig/craters.jpg -x 65 -y 170 -o1 Gassendi -o2 Archimedes
+      - ./script/astro_gen.py ./example add -i ./example/orig/craters.jpg -c ./example/orig/craters.jpg -x 65 -y 170 -o1 Gassendi -o2 Archimedes
 
   - full: m31-saturn-20260816.jpg
     scan: galaxy_planet.jpg
@@ -45,4 +44,4 @@ sketches:
       - m31-20260816.jpg
       - saturn-20260816.jpg
     _cmd:
-      - ./script/astro_gen.py ./examle add -i ./examle/orig/galaxy_planet_inv.jpg -c ./examle/orig/galaxy_planet.jpg -x 65 -y 170 -o1 M31 -o2 Saturn
+      - ./script/astro_gen.py ./example add -i ./example/orig/galaxy_planet_inv.jpg -c ./example/orig/galaxy_planet.jpg -x 65 -y 170 -o1 M31 -o2 Saturn
