@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Tuple, Dict, Optional
 import numpy
 from math import floor, ceil
+from pathlib import Path
 import yaml
 
 from PIL import Image, ImageDraw, ImageFont, ExifTags
@@ -65,8 +66,8 @@ def remove_frame(src: Image,
                  o_y: int,
                  scale: float) -> Image:
 
-    W = 2035 / 2144
-    H = 2795 / 3028
+    W = 0.94
+    H = 0.91
 
     orig_width, orig_height = src.size
     w = int(orig_width * W * scale)
@@ -79,13 +80,15 @@ def remove_frame(src: Image,
 
 def split_image(src: Image) -> Tuple[Image, Image]:
 
-    H_SPLIT = 0.58
+    H_SPLIT = 0.6
+    H_SPLIT_2 = 0.57
 
     width, height = src.size
 
-    cropped_height = int(H_SPLIT * height)
-    img1 = src.crop((0, 0, width, cropped_height))
-    img2 = src.crop((0, height-cropped_height, width, height))
+    top_cropped_height = int(H_SPLIT * height)
+    bot_cropped_height = int(H_SPLIT_2 * height)
+    img1 = src.crop((0, 0, width, top_cropped_height))
+    img2 = src.crop((0, height-bot_cropped_height, width, height))
 
     return (img1, img2)
 
@@ -232,6 +235,18 @@ def process(src: Image,
 
 def save_image(img: Image, name: str, desc: str, cr_data: Dict):
 
+    name_as_path = Path(name)
+    if name_as_path.is_file():
+        for i in range(2,6):
+            s = name_as_path.suffix
+            n = name.removesuffix(s)
+            maybe_name = f'{n}-{i}{s}'
+            if not Path(maybe_name).is_file():
+                break
+        name = maybe_name
+
+    print(f'Saving to {name} ...')
+    
     meta = add_copyright_meta(img, desc, cr_data)
     img.save(name, exif=meta.tobytes())
 
@@ -340,7 +355,6 @@ def copyright_cmd(args):
         _, name = mkstemp(suffix='.jpg')
         out_file = name
 
-    print(f'Saving to {out_file} ...')
     save_image(img, out_file, '', cr_data)
 
 
