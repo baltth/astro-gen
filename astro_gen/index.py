@@ -61,8 +61,8 @@ def collect(data: List[Dict], key: Callable) -> OrderedDict[str, List[Dict]]:
         else:
             res[k] = [d['row']]
 
-    for v in res.values():
-        v = natsorted(v)
+    for k, v in res.items():
+        res[k] = natsorted(v)
 
     return sort_categories(res.items())
 
