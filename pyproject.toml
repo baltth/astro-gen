@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=45"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astro-gen"
+dynamic = ["version"]
+description = "Generator for astronomy observation pages"
+readme = "README.md"
+requires-python = ">=3.12"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Balazs Toth", email = "baltth@gmail.com"}
+]
+
+dependencies = [
+    "setuptools",
+    "natsort",
+    "numpy",
+    "pillow",
+    "python-slugify",
+    "requests == 2.*",
+    "ruamel.yaml == 0.18.15",
+]
+
+[project.optional-dependencies]
+dev = [
+    "autopep8",
+    "mypy",
+    "pylint",
+    "pytest",
+    "pytest-mock",
+    "pytest-cov",
+]
+
+[project.scripts]
+astro-gen = "astro_gen.main:main"
+
+[tool.setuptools]
+packages = ["astro_gen"]
+
+[tool.setuptools.dynamic]
+version = {attr = "astro_gen.meta.git_describe_version"}

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import common
-import project
-from datatypes import ObsData, Object, ObjectData, SketchData, create
+from . import common
+from . import project
+from .datatypes import ObsData, Object, ObjectData, SketchData, create
 
 from copy import deepcopy
 from dataclasses import asdict

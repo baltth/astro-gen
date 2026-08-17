@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import common
-from datatypes import Object, ObsData, get_all_data_of
-import project
+from . import common
+from .datatypes import Object, ObsData, get_all_data_of
+from . import project
 
 from copy import copy
 import re

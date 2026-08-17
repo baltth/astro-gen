@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from datatypes import ObjectData
+from .datatypes import ObjectData
 
 import argparse
 import base64

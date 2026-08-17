@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-import common
-from datatypes import ObjectData
-import db
-import fetch
-import proc_image
-import project
+from . import common
+from .datatypes import ObjectData
+from . import db
+from . import fetch
+from . import proc_image
+from . import project
 
 import argparse
 from copy import deepcopy

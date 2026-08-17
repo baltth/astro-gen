@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-import common
-from datatypes import ObsData, Object, SketchData
-import db
-import index
-import pages
-import project
+from . import common
+from .datatypes import ObsData, Object, SketchData
+from . import db
+from . import index
+from . import pages
+from . import project
 
 import argparse
 from copy import copy

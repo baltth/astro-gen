@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import constellations
-from datatypes import Object
+from . import constellations
+from .datatypes import Object
 
 from datetime import datetime, timedelta
 import re
