@@ -1,0 +1,48 @@
+# Sketch 'db' - list of sketches
+#
+# Add items with add.py script of github.com/baltth/astro-gen or manually.
+#
+# Content of entries:
+# 'full': file name of full sketch page [string]
+# 'scan': file name of the original scanned image, optional [list of strings]
+# 'sub': list of files cut out of the full page, optional [list of strings]
+# 'notes': sketch notes, optional [string]
+# '_cmd': commands for generating the files, optional [list of strings]
+
+sketches:
+
+  - full: c47-alpha-umi-20260816.jpg
+    scan: cluster_double_star.jpg
+    sub:
+      - c47-20260816.jpg
+      - alpha-umi-20260816.jpg
+    _cmd:
+      - ./script/astro_gen.py ./examle add -i ./examle/orig/cluster_double_star_inv.jpg -c ./examle/orig/cluster_double_star.jpg -x 65 -y 170 -o1 C47 -o2 
+        'Alpha UMi'
+
+  - full: c-2025-r3-alpha-umi-20260816.jpg
+    scan: comet_double_star.jpg
+    sub:
+      - c-2025-r3-20260816.jpg
+      - alpha-umi-20260816-2.jpg
+    _cmd:
+      - ./script/astro_gen.py ./examle add -i ./examle/orig/comet_double_star_inv.jpg -c ./examle/orig/comet_double_star.jpg -x 65 -y 170 -o1 'C/2025 R3' -o2 
+        'Alpha UMi'
+    notes: |
+      [sketch notes] 
+
+  - full: gassendi-archimedes-20260816.jpg
+    scan: craters.jpg
+    sub:
+      - gassendi-20260816.jpg
+      - archimedes-20260816.jpg
+    _cmd:
+      - ./script/astro_gen.py ./examle add -i ./examle/orig/craters.jpg -c ./examle/orig/craters.jpg -x 65 -y 170 -o1 Gassendi -o2 Archimedes
+
+  - full: m31-saturn-20260816.jpg
+    scan: galaxy_planet.jpg
+    sub:
+      - m31-20260816.jpg
+      - saturn-20260816.jpg
+    _cmd:
+      - ./script/astro_gen.py ./examle add -i ./examle/orig/galaxy_planet_inv.jpg -c ./examle/orig/galaxy_planet.jpg -x 65 -y 170 -o1 M31 -o2 Saturn

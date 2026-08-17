@@ -1,0 +1,112 @@
+# Observation 'db' - list of observations
+#
+# Add items with add.py script of github.com/baltth/astro-gen or manually.
+#
+# Content of entries:
+# 'name': observed object(s) [string or list of strings]
+# 'date': observation date in ISO format [string]
+# 'img': file name of corresponding sketch [string]
+# 'nelm': naked-eye limiting magnitude [float]
+# 'seeing': astronomical seeing, optional [int, 1-10]
+# 'ap': aperture of telescope in mm [int]
+# 'mag': magnification [int]
+# 'fov': field of view of the sketch in degrees [float]
+# 'text': observation notes [string]
+# 'data': custom observation data [map], e.g.
+#    data: 
+#      PA: ~150°
+#      Separation: 42" 
+
+observations:
+
+  - name: C47
+    img: c47-20260816.jpg
+    date: 2025-07-15 23:30
+    nelm: 5.2
+    seeing: 8
+    ap: 150
+    mag: 120
+    fov: 0.6
+
+  - name: Alpha UMi
+    img: alpha-umi-20260816.jpg
+    date: 2025-07-16 00:15
+    nelm: 5.2
+    seeing: 8
+    ap: 150
+    mag: 120
+    fov: 0.6
+    text: |
+      [observation notes]
+
+  - name: C/2025 R3
+    img: c-2025-r3-20260816.jpg
+    date: 2026-08-01 00:00
+    loc: Time Square, NYC
+    nelm: 1.1
+    seeing: 4
+    ap: 70
+    mag: 57
+    fov: 1.0
+    data:
+      Equipment: The best telescope ever
+    text: |
+      [observation notes]
+
+  - name: Alpha UMi
+    img: alpha-umi-20260816-2.jpg
+    date: 2026-08-02 00:15
+    nelm: 5.3
+    seeing: 7
+    ap: 150
+    mag: 120
+    fov: 0.6
+    text: |
+      [observation notes] This sketch is much better than the [previous](alpha-umi-2025-07-15.md),
+      but _wow,_ Polaris had moved away!
+
+  - name: Gassendi
+    img: gassendi-20260816.jpg
+    date: 2026-08-09 22:50
+    loc: Dark side of the Moon
+    nelm: 4.5
+    seeing: 7
+    ap: 150
+    mag: 150
+    fov: 0.45
+    text: |
+      [observation notes]
+
+  - name: Archimedes
+    img: archimedes-20260816.jpg
+    date: 2026-08-10 00:15
+    loc: Dark side of the Moon
+    nelm: 4.5
+    seeing: 7
+    ap: 150
+    mag: 150
+    fov: 0.45
+    text: |
+      [observation notes]
+
+  - name: M31
+    img: m31-20260816.jpg
+    date: 2026-08-16 01:00
+    nelm: 5.0
+    seeing: 7
+    ap: 150
+    mag: 30
+    fov: 2.0
+    text: |
+      [observation notes]
+
+  - name: Saturn
+    img: saturn-20260816.jpg
+    date: 2026-08-16 01:00
+    nelm: 5.0
+    seeing: 7
+    ap: 150
+    mag: 185
+    fov: 0.35
+    text: |
+      [observation notes]
