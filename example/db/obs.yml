@@ -62,7 +62,7 @@ observations:
     mag: 120
     fov: 0.6
     text: |
-      [observation notes] This sketch is much better than the [previous](alpha-umi-2025-07-15.md),
+      [observation notes] This sketch is much better than the [previous](../2025/alpha-umi-2025-07-15.md),
       but _wow,_ Polaris had moved away!
 
   - name: Gassendi

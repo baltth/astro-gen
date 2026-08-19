@@ -502,11 +502,11 @@ def test_reproc_ambiguous_sketch(project_root, sketches_mock, split_mock, capsys
                                     sketch_entry(_cmd=[REGEN_CMD]),
                                     {'full': 'c47-na-20260816.jpg'}])
 def test_reproc_sketch_without_add_command(sketch,
-                                            project_root,
-                                              sketches_mock,
-                                           split_mock, 
+                                           project_root,
+                                           sketches_mock,
+                                           split_mock,
                                            db_mock,
-                                             capsys):
+                                           capsys):
 
     sketches_mock.return_value = [sketch]
 

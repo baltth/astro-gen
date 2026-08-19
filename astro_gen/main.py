@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
 from . import add
+from . import check
 from . import regen
 
 import argparse
+import sys
 
 
 def _regen_cmd(args: argparse.Namespace):
     regen.regen(project_root=args.project_root)
+    if not args.skip_checks and not check.check(root=args.project_root):
+        sys.exit(1)
 
 
 def _add_cmd(args: argparse.Namespace):
@@ -48,6 +52,7 @@ def arg_parser() -> argparse.ArgumentParser:
     cmd = parser.add_subparsers(title='Commands')
 
     regen_parser = cmd.add_parser('regen', help='Regenerate pages')
+    regen_parser.add_argument('-s', '--skip-checks', action='store_true', help='Skip checks after generation')
     regen_parser.set_defaults(func=_regen_cmd)
 
     add_parser = cmd.add_parser('add', help='Add new observations')

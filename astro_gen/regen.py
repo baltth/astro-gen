@@ -24,6 +24,7 @@ def _load_meta(root: str) -> Dict:
 def _write_file(root: str, cat: str, name: str, content: str):
     doc_root = Path(project.site_root(root))
     out_path = doc_root / cat / name
+    assert out_path.resolve().relative_to(doc_root)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(content, encoding='utf8')
 
@@ -59,7 +60,7 @@ def _get_prev_next_obs_index(ref: ObsData, obs_list: List[ObsData]) -> Tuple[int
 
 def _other_obs_link_data(obs: ObsData) -> Tuple[str, str, str]:
     date = common.obs_day(obs.date)
-    return (common.pretty_name_str(obs.names), date, project.obs_page_url(obs.names, date))
+    return (common.pretty_name_str(obs.names), date, project.obs_page_url(obs.names, date, from_doc_level=2))
 
 
 def _get_nav_links(obs: ObsData,
@@ -104,8 +105,8 @@ def _get_links_notes(obs: ObsData,
     return (links, sketch.notes)
 
 
-def _obs_page_name(obs: ObsData) -> str:
-    return common.obs_page_name(obs.names, common.obs_day(obs.date))
+def _obs_page_file(obs: ObsData) -> str:
+    return project.obs_page_url(obs.names, common.obs_day(obs.date), from_doc_level=0)
 
 
 def _generate_obs(root: str,
@@ -131,7 +132,7 @@ def _generate_obs(root: str,
                                      content_links=content_links,
                                      object_data=_object_data(object_db, data.names))
 
-    _write_file(root, 'obs', _obs_page_name(data), content)
+    _write_file(root, '', _obs_page_file(data), content)
 
 
 def _obs_log_data(obs_db: List[ObsData], from_main: bool) -> List:

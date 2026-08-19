@@ -42,32 +42,32 @@ def main_post_file(root: str) -> str:
     p = Path(root) / 'static' / 'main_post.md'
     return str(p.resolve())
 
+
 def meta_file(root: str) -> str:
     p = Path(root) / 'static' / 'meta.yaml'
     return str(p.resolve())
 
 
-# Url for generated links
+# Url for generated links in observation pages
+
 
 def image_url(file: str) -> str:
-    return f'../img/{file}'
+    return f'../../img/{file}'
 
 
 def scan_url(file: str) -> str:
-    return f'../scan/{file}'
+    return f'../../scan/{file}'
 
 
-def obs_url(file: str) -> str:
-    return f'../obs/{file}'
+def obs_page_url(obj: Union[str, List[str]],
+                 date: str,
+                 from_doc_level: int) -> str:
+    assert from_doc_level >= 0 and from_doc_level <= 2
+
+    url = _obs_url(f'{common.obs_year(date)}/{common.obs_page_name(obj, date)}')
+
+    return url.removeprefix('../'*(2 - from_doc_level))
 
 
-def url_from_main(url: str) -> str:
-    return url.removeprefix('../')
-
-
-def obs_page_url(obj: Union[str, List[str]], date: str, from_main: bool = False) -> str:
-
-    url = obs_url(common.obs_page_name(obj, date))
-    if from_main:
-        return url_from_main(url)
-    return url
+def _obs_url(file: str) -> str:
+    return f'../../obs/{file}'

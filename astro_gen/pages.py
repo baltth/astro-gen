@@ -284,9 +284,13 @@ def fetch_subtitle(line: str) -> Tuple[int, str]:
     return fetch(0, line.strip())
 
 
-def header(title: str, links: Dict[str, str]) -> List[str]:
+def header(title: str, links: Dict[str, str], doc_level: int) -> List[str]:
+    assert doc_level >= 1
 
-    link_line = common.md_link('Main page', '../index.md') + ' -- ' + common.md_link('Index', '../pages/obj_index.md')
+    prefix = '../'*doc_level
+
+    link_line = common.md_link('Main page', prefix + 'index.md') + ' -- ' + \
+        common.md_link('Index', prefix + 'pages/obj_index.md')
     for k, v in links.items():
         link_line += ' -- ' + common.md_link(k, v)
 
@@ -324,7 +328,7 @@ def table_of_contents(content: List[str], max_level: int = 2) -> List[str]:
     assert max_level > 1
 
     def to_link(title: str):
-        anchor = '#' + title.lower().replace(' ', '-')
+        anchor = common.md_anchor(title)
         return common.md_link(title, anchor)
 
     res: List[str] = []
@@ -342,9 +346,10 @@ def page(title: str,
          notes: str = '',
          nav_links: Dict[str, str] = {},
          content_links: Dict[str, str] = {},
-         toc_level: int = 0) -> str:
+         toc_level: int = 0,
+         doc_level: int = 1) -> str:
 
-    md = header(title, links=nav_links)
+    md = header(title, links=nav_links, doc_level=doc_level)
 
     if toc_level >= 2 and len(content) > 100:
         toc = table_of_contents(content=content, max_level=toc_level)
@@ -396,7 +401,8 @@ def log_row(names: Union[str, List[str]], date: str, from_main: bool = False) ->
 
     pretty_name = common.pretty_name_str(names)
     date_prefix = date + ':'
-    url = project.obs_page_url(names, date, from_main=from_main)
+    doc_level = 0 if from_main else 1
+    url = project.obs_page_url(names, date, from_doc_level=doc_level)
     return [date_prefix, pretty_name, url, '']
 
 
@@ -406,7 +412,7 @@ def index_row(obj_name: str,
               obj_data: Object) -> List[str]:
 
     pretty_name: str = common.pretty_name(obj_name)
-    url = project.obs_page_url(all_names, date)
+    url = project.obs_page_url(all_names, date, from_doc_level=1)
     desc = common.short_desc(obj_data)
     return ['', pretty_name, url, f'- {desc}']
 
@@ -460,7 +466,8 @@ def observation_page(obs_data: ObsData,
     return page(title=title,
                 content=md,
                 nav_links=nav_links,
-                content_links=content_links)
+                content_links=content_links,
+                doc_level=2)
 
 
 def index_page(title: str,
@@ -472,4 +479,5 @@ def index_page(title: str,
                 content=index_data(data),
                 notes=notes,
                 content_links=links,
-                toc_level=0)
+                toc_level=0,
+                doc_level=1)

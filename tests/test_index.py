@@ -28,7 +28,7 @@ def test_raw_data_entry_per_name():
     # an entry for each observed object, sorted by name
     assert [d['name'] for d in raw] == ['Alpha UMi', 'C47']
     # both link to the common observation page
-    assert all(d['row'][2] == '../obs/c47-alpha-umi-2026-08-16.md' for d in raw)
+    assert all(d['row'][2] == '../obs/2026/c47-alpha-umi-2026-08-16.md' for d in raw)
 
 
 def test_raw_data_sorted_naturally():
@@ -48,7 +48,7 @@ def test_raw_data_latest_observation_wins():
     raw = index.raw_data(obs_db, object_db)
     # a single entry, pointing to the latest observation
     assert len(raw) == 1
-    assert raw[0]['row'][2] == '../obs/c47-2026-08-16.md'
+    assert raw[0]['row'][2] == '../obs/2026/c47-2026-08-16.md'
 
 
 def test_raw_data_no_data():
@@ -210,14 +210,14 @@ def test_index_content():
         '',
         '#### Deep space',
         '',
-        '- [C47](../obs/c47-2026-08-16.md) - globular cluster in Delphinus',
+        '- [C47](../obs/2026/c47-2026-08-16.md) - globular cluster in Delphinus',
         '',
         '',
         '## By constellation',
         '',
         '#### Delphinus',
         '',
-        '- [C47](../obs/c47-2026-08-16.md) - globular cluster in Delphinus',
+        '- [C47](../obs/2026/c47-2026-08-16.md) - globular cluster in Delphinus',
         '',
         ''
     ]
