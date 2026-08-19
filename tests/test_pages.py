@@ -426,7 +426,7 @@ def test_fetch_subtitle_no_subtitle():
 
 def test_header():
 
-    assert pages.header('C47', links={}) == [
+    assert pages.header('C47', links={}, doc_level=1) == [
         '# C47',
         '',
         '[Main page](../index.md) -- [Index](../pages/obj_index.md)',
@@ -436,7 +436,7 @@ def test_header():
 
 def test_header_with_links():
 
-    md = pages.header('C47', links={'Scan': '../scan/s.jpg'})
+    md = pages.header('C47', links={'Scan': '../scan/s.jpg'}, doc_level=1)
     assert md[2].endswith(' -- [Scan](../scan/s.jpg)')
 
 
@@ -629,7 +629,7 @@ def test_log_row():
     assert pages.log_row(['C47', 'Alpha UMi'], '2026-08-16') == [
         '2026-08-16:',
         'C47, Alpha Ursae Minoris',
-        '../obs/c47-alpha-umi-2026-08-16.md',
+        '../obs/2026/c47-alpha-umi-2026-08-16.md',
         ''
     ]
 
@@ -637,7 +637,7 @@ def test_log_row():
 def test_log_row_from_main():
 
     row = pages.log_row('C47', '2026-08-16', from_main=True)
-    assert row[2] == 'obs/c47-2026-08-16.md'
+    assert row[2] == 'obs/2026/c47-2026-08-16.md'
 
 
 # index_row()
@@ -648,7 +648,7 @@ def test_index_row():
     assert pages.index_row('C47', ['C47', 'Alpha UMi'], '2026-08-16', obj) == [
         '',
         'C47',
-        '../obs/c47-alpha-umi-2026-08-16.md',
+        '../obs/2026/c47-alpha-umi-2026-08-16.md',
         '- globular cluster in Delphinus'
     ]
 
@@ -658,7 +658,7 @@ def test_index_row():
 def test_index_data_list():
 
     data = [pages.log_row('C47', '2026-08-16')]
-    assert pages.index_data(data) == ['- 2026-08-16: [C47](../obs/c47-2026-08-16.md)']
+    assert pages.index_data(data) == ['- 2026-08-16: [C47](../obs/2026/c47-2026-08-16.md)']
 
 
 def test_index_data_plain_text_item():
@@ -673,7 +673,7 @@ def test_index_data_dict_is_grouped():
     assert pages.index_data(data) == [
         '#### Delphinus',
         '',
-        '- [C47](../obs/c47-2026-08-16.md) - globular cluster',
+        '- [C47](../obs/2026/c47-2026-08-16.md) - globular cluster',
         ''
     ]
 
@@ -688,20 +688,20 @@ def test_observation_page():
                  desc='Globular cluster')
 
     md = pages.observation_page(obs,
-                                img='../img/c47.jpg',
+                                img='../../img/c47.jpg',
                                 notes='[sketch notes]',
-                                nav_links={'Scan': '../scan/s.jpg'},
+                                nav_links={'Scan': '../../scan/s.jpg'},
                                 content_links={'Ref': 'http://x'},
                                 object_data={'C47': obj})
 
     assert md == pages.join([
         '# C47',
         '',
-        '[Main page](../index.md) -- [Index](../pages/obj_index.md) -- [Scan](../scan/s.jpg)',
+        '[Main page](../../index.md) -- [Index](../../pages/obj_index.md) -- [Scan](../../scan/s.jpg)',
         '',
         '_C47_ -- _Globular cluster in Delphinus_  ',
         '',
-        '![C47](../img/c47.jpg)',
+        '![C47](../../img/c47.jpg)',
         '',
         '[observation notes]',
         '',
@@ -742,7 +742,7 @@ def test_index_page():
         '',
         '#### Delphinus',
         '',
-        '- [C47](../obs/c47-2026-08-16.md) - globular cluster',
+        '- [C47](../obs/2026/c47-2026-08-16.md) - globular cluster',
         '',
         '> [notes]',
         '',

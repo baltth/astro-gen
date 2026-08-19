@@ -100,6 +100,10 @@ def short_desc(obj_data: Object) -> str:
     return f'{obj_data.type} in {obj_data.constellation}'
 
 
+def md_anchor(text: str) -> str:
+    return '#' + text.lower().replace(' ', '-')
+
+
 def md_link(text: str, url: str, desc: str = '') -> str:
     l = f'[{text}]({url}'
     if desc:
@@ -134,20 +138,23 @@ def obs_page_name(obj: Union[str, List[str]], date: str) -> str:
     return f'{file_basename(obj, date)}.md'
 
 
-def obs_day(date: str) -> str:
-
-    if ':' not in date:
-        # No time, just date, return the original
-        return date
+def _obs_date(date: str):
 
     d = datetime.fromisoformat(date)
-    if d.hour < 12:
+    if ':' in date and d.hour < 12:
         # Observation after midnight, return the previous day
-        prev = d.date() - timedelta(days=1)
-        return prev.isoformat()
+        return d.date() - timedelta(days=1)
 
     # Observation before midnight, return the same day
-    return d.date().isoformat()
+    return d.date()
+
+
+def obs_day(date: str) -> str:
+    return _obs_date(date).isoformat()
+
+
+def obs_year(date: str) -> str:
+    return str(_obs_date(date).year)
 
 
 def get_constellation(name: str) -> str:

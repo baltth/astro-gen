@@ -18,15 +18,15 @@ SKETCH_DB = """\
 
 sketches:
 
-  - full: c47-alpha-umi-20260816.jpg
-    scan: cluster_double_star.jpg
+  - full: 2026/c47-alpha-umi-20260816.jpg
+    scan: 2026/cluster_double_star.jpg
     sub:
-      - c47-20260816.jpg
-      - alpha-umi-20260816.jpg
+      - 2026/c47-20260816.jpg
+      - 2026/alpha-umi-20260816.jpg
     _cmd:
       - astro-gen ./examle add -i ./orig/cluster_double_star.jpg
 
-  - full: gassendi-20260816.jpg
+  - full: 2026/gassendi-20260816.jpg
     notes: |
       [sketch notes]
 """
@@ -37,7 +37,7 @@ OBS_DB = """\
 observations:
 
   - name: C47
-    img: c47-20260816.jpg
+    img: 2026/c47-20260816.jpg
     date: 2025-07-15 23:30
     nelm: 5.2
     seeing: 8
@@ -48,7 +48,7 @@ observations:
   - name:
       - C47
       - Alpha UMi
-    img: c47-alpha-umi-20260816.jpg
+    img: 2026/c47-alpha-umi-20260816.jpg
     date: 2025-07-16 00:15
     nelm: 5.2
     ap: 150
@@ -150,8 +150,8 @@ def test_load_missing_file(project_root: str):
 def test_sketches_raw(project_root: str):
 
     raw = db.sketches_raw(project_root)
-    assert [r['full'] for r in raw] == ['c47-alpha-umi-20260816.jpg',
-                                        'gassendi-20260816.jpg']
+    assert [r['full'] for r in raw] == ['2026/c47-alpha-umi-20260816.jpg',
+                                        '2026/gassendi-20260816.jpg']
     # raw data keeps the entries not present in SketchData
     assert '_cmd' in raw[0].keys()
 
@@ -161,15 +161,15 @@ def test_sketches(project_root: str):
     sk = db.sketches(project_root)
     assert len(sk) == 2
 
-    assert sk[0].full == 'c47-alpha-umi-20260816.jpg'
-    assert sk[0].scan == 'cluster_double_star.jpg'
-    assert sk[0].sub == ['c47-20260816.jpg', 'alpha-umi-20260816.jpg']
+    assert sk[0].full == '2026/c47-alpha-umi-20260816.jpg'
+    assert sk[0].scan == '2026/cluster_double_star.jpg'
+    assert sk[0].sub == ['2026/c47-20260816.jpg', '2026/alpha-umi-20260816.jpg']
     assert sk[0].notes == ''
     # '_cmd' is not part of SketchData, it's dropped silently
     assert not hasattr(sk[0], '_cmd')
 
     # missing optional fields fall back to the defaults
-    assert sk[1].full == 'gassendi-20260816.jpg'
+    assert sk[1].full == '2026/gassendi-20260816.jpg'
     assert sk[1].scan == ''
     assert sk[1].sub == []
     assert sk[1].notes == '[sketch notes]\n'
@@ -193,7 +193,7 @@ def test_observations(project_root: str):
 
     # single 'name' is wrapped into a list
     assert obs[0].names == ['C47']
-    assert obs[0].img == 'c47-20260816.jpg'
+    assert obs[0].img == '2026/c47-20260816.jpg'
     assert obs[0].date == '2025-07-15 23:30'
     assert obs[0].nelm == pytest.approx(5.2)
     assert obs[0].seeing == 8
@@ -281,7 +281,7 @@ def test_update_in_list_hit(project_root: str):
     sk_list = sdb['sketches']
 
     updated = db.update_in_list(sk_list,
-                                {'full': 'gassendi-20260816.jpg', 'scan': 'craters.jpg'},
+                                {'full': '2026/gassendi-20260816.jpg', 'scan': 'craters.jpg'},
                                 match_full)
     assert updated
     assert len(sk_list) == 2
@@ -341,7 +341,7 @@ def test_add_sketch_optional_fields_omitted(project_root: str):
 def test_add_sketch_existing_is_updated(project_root: str):
 
     db.add_sketch(project_root,
-                  full='gassendi-20260816.jpg',
+                  full='2026/gassendi-20260816.jpg',
                   scan='craters.jpg')
 
     sketches = read_back(project.sketch_db(project_root))['sketches']
@@ -364,7 +364,7 @@ def test_add_obs_new(project_root: str):
     assert list(entry.keys()) == ['name', 'img', 'date', 'loc',
                                   'nelm', 'seeing', 'ap', 'mag', 'fov', 'text']
     assert entry['name'] == 'M31'
-    assert entry['img'] == 'm31-20260815.jpg'
+    assert entry['img'] == '2026/m31-20260815.jpg'
     assert entry['date'] == '2026-08-15'
     # all measurement fields are added empty, to be filled manually
     assert entry['loc'] == ''
@@ -380,7 +380,7 @@ def test_add_obs_multiple_names(project_root: str):
     entry = read_back(project.obs_db(project_root))['observations'][-1]
     # more than one name is stored as a list
     assert entry['name'] == ['M31', 'Saturn']
-    assert entry['img'] == 'm31-saturn-20260815.jpg'
+    assert entry['img'] == '2026/m31-saturn-20260815.jpg'
 
 
 def test_add_obs_single_name_kept_as_string(project_root: str):
@@ -389,7 +389,7 @@ def test_add_obs_single_name_kept_as_string(project_root: str):
 
     entry = read_back(project.obs_db(project_root))['observations'][-1]
     assert entry['name'] == 'Alpha UMi'
-    assert entry['img'] == 'alpha-umi-20260815.jpg'
+    assert entry['img'] == '2026/alpha-umi-20260815.jpg'
 
 
 def test_add_obs_duplicate_is_skipped(project_root: str):

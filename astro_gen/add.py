@@ -14,7 +14,7 @@ from pathlib import Path
 from shutil import copy as cp
 from shlex import join as shjoin, split as shsplit
 import sys
-from typing import Dict
+from typing import Dict, cast
 
 
 def _add_images(project_root: str,
@@ -46,8 +46,10 @@ def _add_images(project_root: str,
                                    copyright_file=meta_file if has_meta else '')
 
     if scan:
-        scan_file = Path(scan).parts[-1]
+        year = cast(datetime, db_data['img_date']).year
+        scan_file = f'{year:04}/{Path(scan).parts[-1]}'
         out_path = f'{project.site_root(project_root)}/scan/{scan_file}'
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
         if has_meta:
             proc_image.copyright_cmd(source_image=scan,
@@ -72,7 +74,8 @@ def _add_sketch(root: str, data: Dict, cmd: str = ''):
     ]
 
     if not cmd:
-        cmd = shjoin(sys.argv)
+        this_app = Path(sys.argv[0]).name
+        cmd = shjoin([this_app] + sys.argv[1:])
 
     db.add_sketch(root=root,
                   full=data['cropped_img'],
