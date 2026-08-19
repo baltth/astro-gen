@@ -178,6 +178,9 @@ def add_copyright_img(src: Image, cr_data: Dict) -> Image:
 
     img = deepcopy(src)
 
+    if not cr_data:
+        return img
+
     _, height = img.size
     coords = (TEXT_OFFSET, height - TEXT_OFFSET - FONT_SIZE)
 
@@ -232,7 +235,7 @@ def process(src: Image,
             add_copyright_img(img2, cr_data) if img2 else None)
 
 
-def save_image(img: Image, name: str, desc: str, cr_data: Dict):
+def save_image(img: Image, name: str, desc: str, cr_data: Dict) -> str:
 
     name_as_path = Path(name)
     if name_as_path.is_file():
@@ -246,36 +249,36 @@ def save_image(img: Image, name: str, desc: str, cr_data: Dict):
 
     print(f'Saving to {name} ...')
 
+    name_as_path.parent.mkdir(parents=True, exist_ok=True)
     meta = add_copyright_meta(img, desc, cr_data)
     img.save(name, exif=meta.tobytes())
+    return name
 
 
 def save_object(img: Image,
                 dest_dir: str,
                 object_name: str,
-                date: Optional[datetime] = None,
+                date: datetime,
                 cr_data: Optional[Dict] = None) -> str:
-
-    if not date:
-        date = image_date(img)
 
     if not cr_data:
         cr_data = {}
 
-    name = slugify(f'{object_name}-{date.year:04}{date.month:02}{date.day:02}')
+    name = f'{date.year:04}/' + slugify(f'{object_name}-{date.year:04}{date.month:02}{date.day:02}')
     path_prefix = f'{dest_dir}/' if dest_dir else ''
-    save_image(img, name=f'{path_prefix}{name}.jpg', desc=f'Sketch of {object_name}', cr_data=cr_data)
-    return f'{name}.jpg'
+    saved = save_image(img, name=f'{path_prefix}{name}.jpg', desc=f'Sketch of {object_name}', cr_data=cr_data)
+    return saved.removeprefix(path_prefix)
 
 
 def split_cmd(source_image: str,
-              dest: str = '',
+              dest: str,
               x_offset: int = 0,
               y_offset: int = 0,
               scale: float = 1.0,
               first_object: str = '',
               second_object: str = '',
               full_page: bool = False,
+              date_override: str = '',
               simple: bool = False,
               show: bool = False,
               copyright_file: str = '') -> Dict:
@@ -304,7 +307,10 @@ def split_cmd(source_image: str,
         if img2:
             img2.show()
 
-    date = image_date(src)
+    if date_override:
+        date = datetime.fromisoformat(date_override)
+    else:
+        date = image_date(src)
 
     db_data = {}
     db_data['img_date'] = date

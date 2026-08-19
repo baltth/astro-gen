@@ -6,6 +6,7 @@ from .datatypes import ObsData, Object, ObjectData, SketchData, create
 
 from copy import deepcopy
 from dataclasses import asdict
+from datetime import datetime
 from natsort import natsorted
 from pathlib import Path
 from ruamel.yaml import YAML, comments
@@ -145,8 +146,10 @@ def add_obs(root: str,
     names = common.names_to_list(name)
     entry_name = names if len(names) > 1 else name
 
+    year = datetime.fromisoformat(date).year
+
     date_in_file = date.replace('-', '')
-    img = common.sketch_name(entry_name, date_in_file)
+    img = f'{year:04}/{common.sketch_name(entry_name, date_in_file)}'
 
     odb = load(project.obs_db(root))
     obs_list: YamlList[YamlDict] = odb['observations']
@@ -157,7 +160,7 @@ def add_obs(root: str,
 
     entry = {
         'name': entry_name,
-        'img': common.sketch_name(entry_name, date_in_file),
+        'img': img,
         'date': date,
         'loc': '',
         'nelm': 0,

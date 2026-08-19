@@ -1,3 +1,3 @@
 > Content before observations...
 
-![C47](img/m31-20260816.jpg)
+![C47](img/2026/m31-20260816.jpg)

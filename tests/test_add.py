@@ -150,14 +150,14 @@ def test_add_images_scan_with_meta_file(project_root,
                            img='./orig/cluster.jpg',
                            scan='./orig/scanned.jpg')
 
-    # the scan is registered by its file name
-    assert data['scan'] == 'scanned.jpg'
+    # the scan is registered by its file name, below the folder of its year
+    assert data['scan'] == '2026/scanned.jpg'
 
     # it's copied to the scan folder of the site with a copyright note
     kwargs = copyright_mock.call_args.kwargs
     assert kwargs['source_image'] == './orig/scanned.jpg'
     assert kwargs['copyright_file'] == meta_file
-    assert kwargs['out'] == f'{Path(project_root, "docs").resolve()}/scan/scanned.jpg'
+    assert kwargs['out'] == f'{Path(project_root, "docs").resolve()}/scan/2026/scanned.jpg'
     assert kwargs['show'] is False
 
     cp_mock.assert_not_called()
@@ -172,13 +172,76 @@ def test_add_images_scan_without_meta_file(project_root,
                            img='./orig/cluster.jpg',
                            scan='./orig/scanned.jpg')
 
-    assert data['scan'] == 'scanned.jpg'
+    assert data['scan'] == '2026/scanned.jpg'
     copyright_mock.assert_not_called()
 
     # the scan is copied as-is
     cp_mock.assert_called_once_with(
         './orig/scanned.jpg',
-        f'{Path(project_root, "docs").resolve()}/scan/scanned.jpg')
+        f'{Path(project_root, "docs").resolve()}/scan/2026/scanned.jpg')
+
+
+def test_add_images_scan_folder_is_created(project_root,
+                                           split_mock,
+                                           cp_mock):
+    """The scan folder of the year has to be created before copying into it."""
+
+    scan_dir = Path(project_root, 'docs', 'scan', '2026')
+    assert not scan_dir.is_dir()
+
+    add._add_images(project_root=project_root,
+                    img='./orig/cluster.jpg',
+                    scan='./orig/scanned.jpg')
+
+    assert scan_dir.is_dir()
+
+
+def test_add_images_scan_folder_is_created_with_meta_file(project_root,
+                                                          meta_file,
+                                                          split_mock,
+                                                          copyright_mock):
+    """The scan folder of the year is created for the copyright variant too."""
+
+    scan_dir = Path(project_root, 'docs', 'scan', '2026')
+    assert not scan_dir.is_dir()
+
+    add._add_images(project_root=project_root,
+                    img='./orig/cluster.jpg',
+                    scan='./orig/scanned.jpg')
+
+    assert scan_dir.is_dir()
+
+
+def test_add_images_scan_folder_exists(project_root,
+                                       split_mock,
+                                       cp_mock):
+    """An existing scan folder is no error."""
+
+    Path(project_root, 'docs', 'scan', '2026').mkdir(parents=True)
+
+    data = add._add_images(project_root=project_root,
+                           img='./orig/cluster.jpg',
+                           scan='./orig/scanned.jpg')
+
+    assert data['scan'] == '2026/scanned.jpg'
+
+
+def test_add_images_scan_of_other_year(project_root,
+                                       split_mock,
+                                       cp_mock):
+    """The scan follows the date of the source image."""
+
+    split_mock.return_value = split_data(img_date=datetime(2025, 1, 2, 21, 0))
+
+    data = add._add_images(project_root=project_root,
+                           img='./orig/cluster.jpg',
+                           scan='./orig/scanned.jpg')
+
+    assert data['scan'] == '2025/scanned.jpg'
+    assert Path(project_root, 'docs', 'scan', '2025').is_dir()
+    cp_mock.assert_called_once_with(
+        './orig/scanned.jpg',
+        f'{Path(project_root, "docs").resolve()}/scan/2025/scanned.jpg')
 
 
 # _add_sketch()
