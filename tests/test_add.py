@@ -109,20 +109,6 @@ def test_add_images(project_root, split_mock):
     assert kwargs['copyright_file'] == ''
 
 
-def test_add_images_defaults(project_root, split_mock):
-
-    add._add_images(project_root=project_root, img='./orig/cluster.jpg')
-
-    kwargs = split_mock.call_args.kwargs
-    assert kwargs['x_offset'] == 0
-    assert kwargs['y_offset'] == 0
-    assert kwargs['scale'] == pytest.approx(1.0)
-    assert kwargs['first_object'] == ''
-    assert kwargs['second_object'] == ''
-    assert kwargs['full_page'] is False
-    assert kwargs['simple'] is False
-
-
 def test_add_images_with_meta_file(project_root, meta_file, split_mock):
 
     add._add_images(project_root=project_root, img='./orig/cluster.jpg')

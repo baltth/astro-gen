@@ -20,14 +20,7 @@ from typing import Dict, cast
 def _add_images(project_root: str,
                 img: str,
                 scan: str = '',
-                x_offset: int = 0,
-                y_offset: int = 0,
-                scale: float = 1.0,
-                first_object: str = '',
-                second_object: str = '',
-                add_new: bool = False,
-                full_page: bool = False,
-                simple: bool = False) -> Dict:
+                **kwargs) -> Dict:
 
     print('Processing images ...')
 
@@ -36,16 +29,9 @@ def _add_images(project_root: str,
 
     db_data = proc_image.split_cmd(source_image=img,
                                    dest=project.site_images(project_root),
-                                   x_offset=x_offset,
-                                   y_offset=y_offset,
-                                   scale=scale,
-                                   first_object=first_object,
-                                   second_object=second_object,
-                                   full_page=full_page,
-                                   add_new=add_new,
-                                   simple=simple,
                                    show=False,
-                                   copyright_file=meta_file if has_meta else '')
+                                   copyright_file=meta_file if has_meta else '',
+                                   **kwargs)
 
     if scan:
         year = cast(datetime, db_data['img_date']).year
@@ -106,27 +92,17 @@ def _add_objects(root: str, name: str):
 def add(project_root: str,
         img: str,
         scan: str = '',
-        x_offset: int = 0,
-        y_offset: int = 0,
-        scale: float = 1.0,
         first_object: str = '',
         second_object: str = '',
-        add_new: bool = False,
-        full_page: bool = False,
-        simple: bool = False,
-        cmd: str = ''):
+        cmd: str = '',
+        **kwargs):
 
     sketch_data = _add_images(project_root=project_root,
                               img=img,
                               scan=scan,
-                              x_offset=x_offset,
-                              y_offset=y_offset,
-                              scale=scale,
                               first_object=first_object,
                               second_object=second_object,
-                              add_new=add_new,
-                              full_page=full_page,
-                              simple=simple)
+                              **kwargs)
 
     _add_sketch(root=project_root, data=sketch_data, cmd=cmd)
 
