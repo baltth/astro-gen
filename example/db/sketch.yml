@@ -25,8 +25,8 @@ sketches:
       - 2026/c-2025-r3-20260816.jpg
       - 2026/alpha-umi-20260816-2.jpg
     _cmd:
-      - ./script/astro_gen.py ./example add -i ./example/orig/comet_double_star_inv.jpg -c ./example/orig/comet_double_star.jpg -x 65 -y 170 -o1 'C/2025 R3' -o2
-        'Alpha UMi'
+      - astro-gen ./example add -i ./example/orig/comet_double_star_inv.jpg -c ./example/orig/comet_double_star.jpg -x 65 -y 170 -o1 'C/2025 R3' -o2 'Alpha UMi'
+        --new
     notes: |
       [sketch notes]
 

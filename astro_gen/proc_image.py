@@ -235,10 +235,14 @@ def process(src: Image,
             add_copyright_img(img2, cr_data) if img2 else None)
 
 
-def save_image(img: Image, name: str, desc: str, cr_data: Dict) -> str:
+def save_image(img: Image,
+               name: str,
+               add_new: bool,
+               desc: str,
+               cr_data: Dict) -> str:
 
     name_as_path = Path(name)
-    if name_as_path.is_file():
+    if name_as_path.is_file() and add_new:
         for i in range(2, 6):
             s = name_as_path.suffix
             n = name.removesuffix(s)
@@ -247,7 +251,10 @@ def save_image(img: Image, name: str, desc: str, cr_data: Dict) -> str:
                 break
         name = maybe_name
 
-    print(f'Saving to {name} ...')
+    if Path(name).is_file():
+        print(f'Overwriting {name} ...')
+    else:
+        print(f'Saving to {name} ...')
 
     name_as_path.parent.mkdir(parents=True, exist_ok=True)
     meta = add_copyright_meta(img, desc, cr_data)
@@ -259,6 +266,7 @@ def save_object(img: Image,
                 dest_dir: str,
                 object_name: str,
                 date: datetime,
+                add_new: bool,
                 cr_data: Optional[Dict] = None) -> str:
 
     if not cr_data:
@@ -266,7 +274,11 @@ def save_object(img: Image,
 
     name = f'{date.year:04}/' + slugify(f'{object_name}-{date.year:04}{date.month:02}{date.day:02}')
     path_prefix = f'{dest_dir}/' if dest_dir else ''
-    saved = save_image(img, name=f'{path_prefix}{name}.jpg', desc=f'Sketch of {object_name}', cr_data=cr_data)
+    saved = save_image(img,
+                       name=f'{path_prefix}{name}.jpg',
+                       add_new=add_new,
+                       desc=f'Sketch of {object_name}',
+                       cr_data=cr_data)
     return saved.removeprefix(path_prefix)
 
 
@@ -278,6 +290,7 @@ def split_cmd(source_image: str,
               first_object: str = '',
               second_object: str = '',
               full_page: bool = False,
+              add_new: bool = False,
               date_override: str = '',
               simple: bool = False,
               show: bool = False,
@@ -319,7 +332,9 @@ def split_cmd(source_image: str,
         n = save_object(img=img1,
                         dest_dir=dest,
                         object_name=first_object,
-                        date=date)
+                        date=date,
+                        add_new=add_new,
+                        cr_data=cr_data)
         db_data['first_name'] = first_object
         db_data['first_img'] = n
 
@@ -333,7 +348,9 @@ def split_cmd(source_image: str,
         n = save_object(img=img2,
                         dest_dir=dest,
                         object_name=second_object,
-                        date=date)
+                        date=date,
+                        add_new=add_new,
+                        cr_data=cr_data)
         db_data['second_name'] = first_object
         db_data['second_img'] = n
 
@@ -347,7 +364,9 @@ def split_cmd(source_image: str,
     n = save_object(img=cropped,
                     dest_dir=dest,
                     object_name=full_name,
-                    date=date)
+                    date=date,
+                    add_new=add_new,
+                    cr_data=cr_data)
     db_data['cropped_img'] = n
 
     return db_data
@@ -373,4 +392,8 @@ def copyright_cmd(source_image: str,
         _, name = mkstemp(suffix='.jpg')
         out_file = name
 
-    save_image(img, out_file, '', cr_data)
+    save_image(img,
+               name=out_file,
+               desc='',
+               add_new=False,
+               cr_data=cr_data)

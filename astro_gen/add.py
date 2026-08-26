@@ -25,6 +25,7 @@ def _add_images(project_root: str,
                 scale: float = 1.0,
                 first_object: str = '',
                 second_object: str = '',
+                add_new: bool = False,
                 full_page: bool = False,
                 simple: bool = False) -> Dict:
 
@@ -41,6 +42,7 @@ def _add_images(project_root: str,
                                    first_object=first_object,
                                    second_object=second_object,
                                    full_page=full_page,
+                                   add_new=add_new,
                                    simple=simple,
                                    show=False,
                                    copyright_file=meta_file if has_meta else '')
@@ -109,6 +111,7 @@ def add(project_root: str,
         scale: float = 1.0,
         first_object: str = '',
         second_object: str = '',
+        add_new: bool = False,
         full_page: bool = False,
         simple: bool = False,
         cmd: str = ''):
@@ -121,6 +124,7 @@ def add(project_root: str,
                               scale=scale,
                               first_object=first_object,
                               second_object=second_object,
+                              add_new=add_new,
                               full_page=full_page,
                               simple=simple)
 

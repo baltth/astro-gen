@@ -25,7 +25,8 @@ def _add_cmd(args: argparse.Namespace):
             first_object=args.first_object,
             second_object=args.second_object,
             full_page=args.full_page,
-            simple=args.simple)
+            simple=args.simple,
+            add_new=args.new)
 
 
 def _fetch_cmd(args: argparse.Namespace):
@@ -64,6 +65,8 @@ def arg_parser() -> argparse.ArgumentParser:
     add_parser.add_argument('-o1', '--first-object', default='')
     add_parser.add_argument('-o2', '--second-object', default='')
     add_parser.add_argument('--full-page', action='store_true')
+    add_parser.add_argument('--new', help='Force adding new images instead of overwrite in case of existing additions',
+                            action='store_true')
     add_parser.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
                             action='store_true')
     add_parser.set_defaults(func=_add_cmd)
