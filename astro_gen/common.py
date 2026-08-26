@@ -118,12 +118,13 @@ def md_image(text: str, url: str, desc: str = '') -> str:
 
 
 def name_slug(obj: Union[str, List[str]]) -> str:
-    if isinstance(obj, list):
-        name = ','.join(obj)
-    else:
-        name = obj
 
-    return slugify(name)
+    # slugifying before joining the list. Doing the other way has some corner cases like
+    # ['C15', '16 Cyg'] converted to 'c1516-cyg'...
+    if isinstance(obj, list):
+        names = [slugify(o) for o in obj]
+        return '-'.join(names).replace('--', '-')
+    return slugify(obj)
 
 
 def file_basename(obj: Union[str, List[str]], date: str) -> str:
