@@ -92,6 +92,13 @@ class Curves:
     def _mask(x: float) -> float:
         return sqrt(sin(x * pi))
 
+    @staticmethod
+    def combine(curve: CurveFunc, *args) -> CurveFunc:
+        if not args:
+            return curve
+        rem = Curves.combine(*args)
+        return lambda x: rem(curve(x))
+
 
 def is_normal_range(v: List) -> bool:
     if not v:

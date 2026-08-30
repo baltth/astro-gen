@@ -2,7 +2,11 @@
 
 from . import add
 from . import check
+from . import proc_image
+from . import project
 from . import regen
+
+from pathlib import Path
 
 import argparse
 import sys
@@ -44,6 +48,20 @@ def _reproc_cmd(args: argparse.Namespace):
                sketch=args.sketch)
 
 
+def _proc_cmd(args: argparse.Namespace):
+    meta_file = project.meta_file(args.project_root)
+    if meta_file and not Path(meta_file).is_file():
+        meta_file = ''
+
+    print(args.cutouts)
+    proc_image.proc(img=args.image,
+                    out_dir=args.out_dir,
+                    cut_offset=args.cut_offset,
+                    cutouts=args.cutouts,
+                    simple_resize=args.simple,
+                    meta=meta_file)
+
+
 def arg_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser()
@@ -80,6 +98,15 @@ def arg_parser() -> argparse.ArgumentParser:
     reproc_parser = cmd.add_parser('reproc', help='Reprocess previously added images')
     reproc_parser.add_argument('-s', '--sketch', help='Sketch file', default='')
     reproc_parser.set_defaults(func=_reproc_cmd)
+
+    proc_parser = cmd.add_parser('proc', help='Process images (experimental)')
+    proc_parser.add_argument('image', help='Source image')
+    proc_parser.add_argument('-o', '--out-dir', help='Output directory, defaults to ./tmp', default='./tmp')
+    proc_parser.add_argument('-f', '--cut-offset', default='0,0')
+    proc_parser.add_argument('-c', '--cutouts', nargs='+', help='Cutout images in \'WxH+X+Y\' format', default=[])
+    proc_parser.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
+                             action='store_true')
+    proc_parser.set_defaults(func=_proc_cmd)
 
     return parser
 

@@ -182,6 +182,35 @@ def test_curves_mask():
     assert Curves._mask(0.25) == pytest.approx(Curves._mask(0.75))
 
 
+# Curves.combine()
+
+def test_curves_combine_single_curve_is_returned_as_is():
+
+    c = Curves.linear()
+    assert Curves.combine(c) is c
+
+
+def test_curves_combine_applies_the_curves_in_order():
+
+    half = (lambda x: x / 2)
+    lift = (lambda x: x + 0.25)
+
+    assert Curves.combine(half, lift)(0.5) == pytest.approx(0.5)
+    assert Curves.combine(lift, half)(0.5) == pytest.approx(0.375)
+
+
+def test_curves_combine_more_than_two_curves():
+
+    lift = (lambda x: x + 0.1)
+    assert Curves.combine(lift, lift, lift)(0.1) == pytest.approx(0.4)
+
+
+def test_curves_combine_inverse_pair_is_linear():
+
+    c = Curves.combine(Curves.invert(), Curves.invert())
+    assert image_curves.populate(c) == LINEAR_LUT
+
+
 # is_normal_range()
 
 def test_is_normal_range():
