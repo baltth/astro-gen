@@ -8,13 +8,11 @@ import numpy
 from pathlib import Path
 from pprint import pformat
 import shutil
-from tempfile import mkstemp
 from typing import Tuple, Dict, List, Optional, Union
 import yaml
 
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 from PIL.Image import Image as ImageT
-from slugify import slugify
 
 from .image_curves import Curves, apply
 
@@ -25,7 +23,7 @@ DESCRIPTION_TAG = 0x010e
 SOFTWARE_TAG = 0x0131
 
 
-def load_yaml(file: str) -> Dict:
+def _load_yaml(file: str) -> Dict:
 
     with open(file, encoding='utf8') as f:
         data = yaml.safe_load(f)
@@ -33,26 +31,29 @@ def load_yaml(file: str) -> Dict:
         return data
 
 
-def copyright_meta(year: int, cr_data: Dict) -> str:
+def _copyright_meta(year: int, cr_data: Dict) -> str:
     assert year >= 1900
     return f'(C) {year}, {cr_data['author']}, {cr_data['email']}'
 
 
-def copyright_text_on_image(year: int, cr_data: Dict) -> str:
+def _copyright_text_on_image(year: int, cr_data: Dict) -> str:
     assert year >= 1900
     text = cr_data['image_note']
     assert isinstance(text, str)
     return text.replace('YEAR', str(year))
 
 
-def print_meta(img: ImageT):
+def _print_meta(img: ImageT):
 
     meta = img.getexif()
     for k, v in meta.items():
         print(f'  {k} - {ExifTags.TAGS.get(k, k)}: {v}')
 
 
-def image_date(img: ImageT) -> datetime:
+def image_date(img: Union[ImageT, str]) -> datetime:
+
+    if isinstance(img, str):
+        return image_date(Image.open(img))
 
     try:
         date_str = img.getexif()[DATE_TIME_TAG]
@@ -61,8 +62,7 @@ def image_date(img: ImageT) -> datetime:
         return datetime.now()
 
 
-def image_year(img: ImageT) -> int:
-
+def image_year(img: Union[ImageT, str]) -> int:
     return image_date(img).year
 
 
@@ -114,10 +114,10 @@ def parse_bounds(desc: str, ref_size: Optional[Tuple[int, int]]) -> Tuple[Tuple[
     return (offs[0], offs[1], int(offs[0] + size[0]), int(offs[1] + size[1]))
 
 
-def remove_frame(src: ImageT,
-                 o_x: int,
-                 o_y: int,
-                 scale: float) -> ImageT:
+def _remove_frame(src: ImageT,
+                  o_x: int,
+                  o_y: int,
+                  scale: float) -> ImageT:
 
     W = 0.94
     H = 0.91
@@ -133,7 +133,7 @@ def remove_frame(src: ImageT,
     return src.crop(bounds)
 
 
-def crop(src: ImageT, desc: str) -> ImageT:
+def _crop(src: ImageT, desc: str) -> ImageT:
 
     bounds = parse_bounds(desc, src.size)
     print(f'Cutting {desc} -> {bounds} ...')
@@ -142,17 +142,6 @@ def crop(src: ImageT, desc: str) -> ImageT:
         raise ValueError(f'Cut {bounds} exceeds image size {src.size}')
 
     return src.crop(bounds)
-
-
-def split_image(src: ImageT) -> Tuple[ImageT, ImageT]:
-
-    H_SPLIT = 60
-    H_SPLIT_2 = 57
-
-    img1 = crop(src, f'100%x{H_SPLIT}%')
-    img2 = crop(src, f'100%x{H_SPLIT_2}%+0+{100-H_SPLIT_2}%')
-
-    return (img1, img2)
 
 
 def luminance_weighted_downscale(image_array: numpy.ndarray, scale: float):
@@ -216,7 +205,7 @@ def luminance_weighted_downscale(image_array: numpy.ndarray, scale: float):
     return result
 
 
-def resize_to_width(img: ImageT, w: int, mode: str = 'lw') -> ImageT:
+def _resize_to_width(img: ImageT, w: int, mode: str = 'lw') -> ImageT:
 
     print(f'Resizing to width {w} ...')
     orig_width, orig_height = img.size
@@ -235,7 +224,7 @@ def resize_to_width(img: ImageT, w: int, mode: str = 'lw') -> ImageT:
         return img.resize((w, int(scale * orig_height)))
 
 
-def add_copyright_img(src: ImageT, cr_data: Dict) -> ImageT:
+def _add_copyright_img(src: ImageT, cr_data: Dict) -> ImageT:
 
     FONT_SIZE = 11
     TEXT_OFFSET = 4
@@ -251,13 +240,13 @@ def add_copyright_img(src: ImageT, cr_data: Dict) -> ImageT:
 
     draw = ImageDraw.Draw(img)
     draw.text(coords,
-              copyright_text_on_image(image_year(img), cr_data),
+              _copyright_text_on_image(image_year(img), cr_data),
               fill=TEXT_COLOR,
               font=ImageFont.load_default(FONT_SIZE))
     return img
 
 
-def update_exif(img: ImageT, desc: str, cr_data: Dict) -> Image.Exif:
+def _update_exif(img: ImageT, desc: str, cr_data: Dict) -> Image.Exif:
 
     exif = img.getexif()
     exif[SOFTWARE_TAG] = 'github.com/baltth/astro-gen.git'
@@ -265,203 +254,19 @@ def update_exif(img: ImageT, desc: str, cr_data: Dict) -> Image.Exif:
         exif[DESCRIPTION_TAG] = desc
     if cr_data:
         exif[ARTIST_TAG] = cr_data['author']
-        exif[COPYRIGHT_TAG] = copyright_meta(image_year(img), cr_data)
+        exif[COPYRIGHT_TAG] = _copyright_meta(image_year(img), cr_data)
 
     return exif
 
 
-def process(src: ImageT,
-            x_offset: int,
-            y_offset: int,
-            scale: float,
-            simple_resize: bool = False,
-            split: bool = True,
-            cr_data: Optional[Dict] = None) -> Tuple[ImageT, ImageT, Optional[ImageT]]:
+def copyright_image(image: str,
+                    meta: Dict):
 
-    if not cr_data:
-        cr_data = {}
+    src = Image.open(image)
 
-    WIDTH = 800
-
-    cropped = remove_frame(src, x_offset, y_offset, scale)
-
-    method = 'simple' if simple_resize else 'lw'
-
-    if split:
-        img1, img2 = split_image(cropped)
-        img1 = resize_to_width(img1, WIDTH, method)
-        img2 = resize_to_width(img2, WIDTH, method)
-    else:
-        img1 = resize_to_width(cropped, WIDTH, method)
-        img2 = None
-
-    return (add_copyright_img(cropped, cr_data),
-            add_copyright_img(img1, cr_data),
-            add_copyright_img(img2, cr_data) if img2 else None)
-
-
-def save_image(img: ImageT,
-               name: str,
-               add_new: bool,
-               desc: str,
-               cr_data: Dict) -> str:
-
-    name_as_path = Path(name)
-    if name_as_path.is_file() and add_new:
-        for i in range(2, 6):
-            s = name_as_path.suffix
-            n = name.removesuffix(s)
-            maybe_name = f'{n}-{i}{s}'
-            if not Path(maybe_name).is_file():
-                break
-        name = maybe_name
-
-    if Path(name).is_file():
-        print(f'Overwriting {name} ...')
-    else:
-        print(f'Saving to {name} ...')
-
-    name_as_path.parent.mkdir(parents=True, exist_ok=True)
-    meta = update_exif(img, desc, cr_data)
-    img.save(name, exif=meta.tobytes())
-    return name
-
-
-def save_object(img: ImageT,
-                dest_dir: str,
-                object_name: str,
-                date: datetime,
-                add_new: bool,
-                cr_data: Optional[Dict] = None) -> str:
-
-    if not cr_data:
-        cr_data = {}
-
-    name = f'{date.year:04}/' + slugify(f'{object_name}-{date.year:04}{date.month:02}{date.day:02}')
-    path_prefix = f'{dest_dir}/' if dest_dir else ''
-    saved = save_image(img,
-                       name=f'{path_prefix}{name}.jpg',
-                       add_new=add_new,
-                       desc=f'Sketch of {object_name}',
-                       cr_data=cr_data)
-    return saved.removeprefix(path_prefix)
-
-
-def split_cmd(source_image: str,
-              dest: str,
-              x_offset: int = 0,
-              y_offset: int = 0,
-              scale: float = 1.0,
-              first_object: str = '',
-              second_object: str = '',
-              full_page: bool = False,
-              add_new: bool = False,
-              date_override: str = '',
-              simple: bool = False,
-              show: bool = False,
-              copyright_file: str = '') -> Dict:
-
-    if copyright_file:
-        cr_data = load_yaml(copyright_file)
-    else:
-        cr_data = None
-
-    src = Image.open(source_image)
-
-    print(f'Source image: {source_image}')
-    print_meta(src)
-
-    cropped, img1, img2 = process(src,
-                                  x_offset,
-                                  y_offset,
-                                  scale,
-                                  simple_resize=simple,
-                                  split=not full_page,
-                                  cr_data=cr_data)
-
-    if show:
-        cropped.show()
-        img1.show()
-        if img2:
-            img2.show()
-
-    if date_override:
-        date = datetime.fromisoformat(date_override)
-    else:
-        date = image_date(src)
-
-    db_data = {}
-    db_data['img_date'] = date
-
-    if first_object:
-        n = save_object(img=img1,
-                        dest_dir=dest,
-                        object_name=first_object,
-                        date=date,
-                        add_new=add_new,
-                        cr_data=cr_data)
-        db_data['first_name'] = first_object
-        db_data['first_img'] = n
-
-        if second_object == first_object:
-            second_object += ' 2nd'
-
-    if second_object:
-        assert not full_page
-        assert img2
-
-        n = save_object(img=img2,
-                        dest_dir=dest,
-                        object_name=second_object,
-                        date=date,
-                        add_new=add_new,
-                        cr_data=cr_data)
-        db_data['second_name'] = first_object
-        db_data['second_img'] = n
-
-    if first_object and not second_object:
-        full_name = f'{first_object} NA'
-    elif second_object and not first_object:
-        full_name = f'NA {second_object}'
-    else:
-        full_name = f'{first_object} {second_object}'
-
-    n = save_object(img=cropped,
-                    dest_dir=dest,
-                    object_name=full_name,
-                    date=date,
-                    add_new=add_new,
-                    cr_data=cr_data)
-    db_data['cropped_img'] = n
-
-    return db_data
-
-
-def copyright_cmd(source_image: str,
-                  copyright_file: str,
-                  out: str = '',
-                  show: bool = False):
-
-    cr_data = load_yaml(copyright_file)
-    src = Image.open(source_image)
-
-    print(f'Source image: {source_image}')
-    print_meta(src)
-
-    img = add_copyright_img(src, cr_data)
-    if show:
-        img.show()
-    if out:
-        out_file = out
-    else:
-        _, name = mkstemp(suffix='.jpg')
-        out_file = name
-
-    save_image(img,
-               name=out_file,
-               desc='',
-               add_new=False,
-               cr_data=cr_data)
+    img = _add_copyright_img(src, meta)
+    exif = _update_exif(img, desc='', cr_data=meta)
+    img.save(image, exif=exif.tobytes())
 
 
 def _enhance_pos(img: ImageT, strength: float) -> ImageT:
@@ -520,9 +325,9 @@ def _save(ctx: SaveContext, img: ImageT, *args):
     file = ctx.out_path / f'{name}{EXT}'
 
     if ctx.meta and img.width > ADD_CR_ABOVE:
-        img = add_copyright_img(img, ctx.meta)
+        img = _add_copyright_img(img, ctx.meta)
 
-    exif = update_exif(img, desc=ctx.exif_desc, cr_data=ctx.meta)
+    exif = _update_exif(img, desc=ctx.exif_desc, cr_data=ctx.meta)
 
     print(f'Saving {file} ...')
     img.save(file, exif=exif.tobytes())
@@ -559,7 +364,7 @@ def _create_images(img: ImageT,
         assert width > 0
         if width < img.width:
             method = 'simple' if simple_resize else 'lw'
-            inv_resized = resize_to_width(inv, width, mode=method)
+            inv_resized = _resize_to_width(inv, width, mode=method)
         else:
             inv_resized = inv.copy()
 
@@ -577,12 +382,12 @@ def _create_images(img: ImageT,
             add(i_e, *new_qual)
 
 
-def proc(img: Union[str, ImageT],
-         out_dir: str,
-         cut_offset: str,
-         cutouts: List[str] = 0,
-         simple_resize: bool = False,
-         meta: Union[str, Dict] = ''):
+def process(img: Union[str, ImageT],
+            out_dir: str,
+            cut_offset: str,
+            cutouts: List[str] = 0,
+            simple_resize: bool = False,
+            meta: Union[str, Dict] = ''):
 
     def raise_invalid_type(**kwargs):
         k, v = list(kwargs.items())[0]
@@ -590,7 +395,7 @@ def proc(img: Union[str, ImageT],
 
     if meta:
         if isinstance(meta, str):
-            meta = load_yaml(meta)
+            meta = _load_yaml(meta)
         elif not isinstance(meta, dict):
             raise_invalid_type(copyright_data=meta)
     else:
@@ -611,9 +416,11 @@ def proc(img: Union[str, ImageT],
                            meta=meta,
                            exif_desc='')
 
+    _save(save_ctx, src, 'orig')
+
     x_offset, y_offset = parse_offset(cut_offset, src.size)
 
-    full = remove_frame(src, int(x_offset), int(y_offset), 1.0)
+    full = _remove_frame(src, int(x_offset), int(y_offset), 1.0)
     _create_images(img=full,
                    name=FULL,
                    ctx=save_ctx,
@@ -623,7 +430,7 @@ def proc(img: Union[str, ImageT],
     sizes = [(MID, MID_WIDTH), (SMALL, SMALL_WIDTH)]
 
     for i, cr in enumerate(cutouts):
-        img = crop(full, cr)
+        img = _crop(full, cr)
         _create_images(img=img,
                        name=f'c{i+1}',
                        ctx=save_ctx,

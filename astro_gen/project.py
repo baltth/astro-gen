@@ -3,7 +3,8 @@
 from . import common
 
 from pathlib import Path
-from typing import List, Union
+from typing import Dict, List, Union
+import yaml
 
 
 # Project layout, paths
@@ -71,3 +72,18 @@ def obs_page_url(obj: Union[str, List[str]],
 
 def _obs_url(file: str) -> str:
     return f'../../obs/{file}'
+
+
+# misc
+
+
+def load_meta(root: str) -> Dict:
+
+    file = meta_file(root)
+    if not Path(file).is_file():
+        return {}
+
+    with open(file, encoding='utf8') as f:
+        data = yaml.safe_load(f)
+        assert isinstance(data, dict)
+        return data

@@ -22,10 +22,8 @@ def _add_cmd(args: argparse.Namespace):
 
     add.add(project_root=args.project_root,
             img=args.img,
-            scan=args.scan,
-            x_offset=args.x_offset,
-            y_offset=args.y_offset,
-            scale=args.scale,
+            cut_offset=args.cut_offset,
+            positive=args.positive,
             first_object=args.first_object,
             second_object=args.second_object,
             full_page=args.full_page,
@@ -54,7 +52,7 @@ def _proc_cmd(args: argparse.Namespace):
         meta_file = ''
 
     print(args.cutouts)
-    proc_image.proc(img=args.image,
+    proc_image.process(img=args.image,
                     out_dir=args.out_dir,
                     cut_offset=args.cut_offset,
                     cutouts=args.cutouts,
@@ -76,9 +74,8 @@ def arg_parser() -> argparse.ArgumentParser:
 
     add_parser = cmd.add_parser('add', help='Add new observations')
     add_parser.add_argument('-i', '--img', help='Source image')
-    add_parser.add_argument('-c', '--scan', help='Scanned image')
-    add_parser.add_argument('-x', '--x-offset', type=int, default=0)
-    add_parser.add_argument('-y', '--y-offset', type=int, default=0)
+    add_parser.add_argument('-p', '--positive', action='store_true', help='Source image is positive')
+    add_parser.add_argument('-f', '--cut-offset', default='0,0')
     add_parser.add_argument('-s', '--scale', type=float, default=1.0)
     add_parser.add_argument('-o1', '--first-object', default='')
     add_parser.add_argument('-o2', '--second-object', default='')
@@ -101,11 +98,12 @@ def arg_parser() -> argparse.ArgumentParser:
 
     proc_parser = cmd.add_parser('proc', help='Process images (experimental)')
     proc_parser.add_argument('image', help='Source image')
-    proc_parser.add_argument('-o', '--out-dir', help='Output directory, defaults to ./tmp', default='./tmp')
+    proc_parser.add_argument('-p', '--positive', action='store_true', help='Source image is positive')
     proc_parser.add_argument('-f', '--cut-offset', default='0,0')
     proc_parser.add_argument('-c', '--cutouts', nargs='+', help='Cutout images in \'WxH+X+Y\' format', default=[])
     proc_parser.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
                              action='store_true')
+    proc_parser.add_argument('-o', '--out-dir', help='Output directory, defaults to ./tmp', default='./tmp')
     proc_parser.set_defaults(func=_proc_cmd)
 
     return parser
