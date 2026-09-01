@@ -27,6 +27,7 @@ sketches:
       - astro-gen ./examle add -i ./orig/cluster_double_star.jpg
 
   - full: 2026/gassendi-20260816.jpg
+    scan: 2026/craters.jpg
     notes: |
       [sketch notes]
 """
@@ -170,7 +171,7 @@ def test_sketches(project_root: str):
 
     # missing optional fields fall back to the defaults
     assert sk[1].full == '2026/gassendi-20260816.jpg'
-    assert sk[1].scan == ''
+    assert sk[1].scan == '2026/craters.jpg'
     assert sk[1].sub == []
     assert sk[1].notes == '[sketch notes]\n'
 
@@ -332,23 +333,42 @@ def test_add_sketch_new(project_root: str):
 
 def test_add_sketch_optional_fields_omitted(project_root: str):
 
-    db.add_sketch(project_root, full='m31-20260816.jpg')
+    db.add_sketch(project_root, full='m31-20260816.jpg', scan='galaxy.jpg')
 
     sketches = read_back(project.sketch_db(project_root))['sketches']
-    assert sketches[-1] == {'full': 'm31-20260816.jpg'}
+    assert sketches[-1] == {'full': 'm31-20260816.jpg', 'scan': 'galaxy.jpg'}
 
 
 def test_add_sketch_existing_is_updated(project_root: str):
 
     db.add_sketch(project_root,
-                  full='2026/gassendi-20260816.jpg',
-                  scan='craters.jpg')
+                  full='2026/gassendi-craters-20260816.jpg',
+                  scan='2026/craters.jpg')
 
     sketches = read_back(project.sketch_db(project_root))['sketches']
-    # no new entry, matched by 'full'
+    # no new entry, matched by 'scan'
     assert len(sketches) == 2
-    assert sketches[1]['scan'] == 'craters.jpg'
+    assert sketches[1]['full'] == '2026/gassendi-craters-20260816.jpg'
     assert sketches[1]['notes'] == '[sketch notes]\n'
+
+
+def test_add_sketch_entry_without_scan_is_skipped(project_root: str):
+    """Entries edited manually may miss 'scan', those don't break the matching."""
+
+    file = project.sketch_db(project_root)
+    without_scan = '\n'.join(l for l in SKETCH_DB.splitlines()
+                             if 'scan: 2026/craters.jpg' not in l) + '\n'
+    Path(file).write_text(without_scan, encoding='utf-8')
+
+    db.add_sketch(project_root,
+                  full='2026/gassendi-craters-20260816.jpg',
+                  scan='2026/craters.jpg')
+
+    sketches = read_back(file)['sketches']
+    # no match, a new entry is added
+    assert len(sketches) == 3
+    assert sketches[-1]['full'] == '2026/gassendi-craters-20260816.jpg'
+    assert 'scan' not in sketches[1]
 
 
 # add_obs()

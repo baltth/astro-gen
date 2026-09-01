@@ -51,7 +51,6 @@ def _proc_cmd(args: argparse.Namespace):
     if meta_file and not Path(meta_file).is_file():
         meta_file = ''
 
-    print(args.cutouts)
     proc_image.process(img=args.image,
                     out_dir=args.out_dir,
                     cut_offset=args.cut_offset,

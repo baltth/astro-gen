@@ -3,6 +3,7 @@
 from . import common
 from . import project
 from .datatypes import ObsData, Object, ObjectData, SketchData, create
+from pprint import pprint
 
 from copy import deepcopy
 from dataclasses import asdict
@@ -10,7 +11,7 @@ from datetime import datetime
 from natsort import natsorted
 from pathlib import Path
 from ruamel.yaml import YAML, comments
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 # As db files are also edited manually, we're using
 # ruamel.yaml to be able to round-trip edit
@@ -100,14 +101,22 @@ def save(db: str, data: Dict):
     yaml.dump(data=data,
               stream=Path(db))
 
+def _normalize_list_entry_on_update(e: YamlDict):
+    return
+    keys = list(e.keys())
+    for k in keys[1:-1]:
+        e.yaml_set_comment_before_after_key(k, before=None, after=None)
+    e.yaml_set_comment_before_after_key(keys[0], before='', after=None)
+    e.yaml_set_comment_before_after_key(keys[-1], before=None, after='')
+    
 
 def update_in_list(l: YamlList, entry: Dict, key_match: Callable) -> bool:
     for e in l:
         if key_match(e, entry):
             e.update(**entry)
+            _normalize_list_entry_on_update(e)
             return True
     return False
-
 
 def add_to_list(l: YamlList, entry: Dict):
     l.append(entry)
@@ -116,23 +125,26 @@ def add_to_list(l: YamlList, entry: Dict):
 
 def add_sketch(root: str,
                full: str,
-               scan: str = '',
-               sub: List[str] = [],
-               cmd: List[str] = []):
+               scan: str,
+               sub: Optional[List[str]] = None,
+               cmd: Optional[List[str]] = None,
+               orig_cmd: Optional[List[str]] = None):
 
     entry = {}
     entry['full'] = full
-    if scan:
-        entry['scan'] = scan
+    entry['scan'] = scan
     if sub:
         entry['sub'] = sub
     if cmd:
         entry['_cmd'] = cmd
+    if orig_cmd:
+        entry['_orig_cmd'] = orig_cmd
 
     sdb = load(project.sketch_db(root))
     sk_list: YamlList[YamlDict] = sdb['sketches']
 
-    updated = update_in_list(sk_list, entry, lambda x, y: x['full'] == y['full'])
+    # entries edited manually may miss 'scan', those never match
+    updated = update_in_list(sk_list, entry, lambda x, y: x.get('scan') == y['scan'])
     if not updated:
         add_to_list(sk_list, entry)
 

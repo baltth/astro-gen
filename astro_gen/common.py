@@ -6,7 +6,7 @@ from .datatypes import Object
 from datetime import datetime, timedelta
 import re
 from slugify import slugify
-from typing import List, Union
+from typing import List, Optional, Union
 import unicodedata
 
 
@@ -42,7 +42,7 @@ def pretty_name(name: Union[str, List[str]]) -> Union[str, List[str]]:
         name_start = ' '.join(split_name[0:-1])
         return f'{name_start} {constellations.genitive(split_name[-1])}'
 
-    messier_match = re.match(r'^M(\d{1,3})$', name)
+    messier_match = re.match(r'^M(1?\d{1,2})$', name)
     if messier_match:
         return f'Messier {messier_match.group(1)}'
 
@@ -156,6 +156,21 @@ def obs_day(date: str) -> str:
 
 def obs_year(date: str) -> str:
     return str(_obs_date(date).year)
+
+
+def date_for_file_name(date: datetime) -> str:
+    return f'{date.year:04}{date.month:02}{date.day:02}'
+
+
+def parse_date_from_file_name(file: str) -> Optional[datetime]:
+    try:
+        m = re.match(r'[\w\-]+-(\d{8})[\w\-\.]+', file)
+        if m:
+            return datetime.strptime(m.group(1), '%Y%m%d')
+    except Exception as e:
+        print(f'Invalid date in filename {file}: {e}')
+
+    return None
 
 
 def get_constellation(name: str) -> str:
