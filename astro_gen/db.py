@@ -10,7 +10,7 @@ from datetime import datetime
 from natsort import natsorted
 from pathlib import Path
 from ruamel.yaml import YAML, comments
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 # As db files are also edited manually, we're using
 # ruamel.yaml to be able to round-trip edit
@@ -117,8 +117,9 @@ def add_to_list(l: YamlList, entry: Dict):
 def add_sketch(root: str,
                full: str,
                scan: str = '',
-               sub: List[str] = [],
-               cmd: List[str] = []):
+               sub: Optional[List[str]] = None,
+               cmd: Optional[List[str]] = None,
+               orig_cmd: Optional[List[str]] = None):
 
     entry = {}
     entry['full'] = full
@@ -128,6 +129,8 @@ def add_sketch(root: str,
         entry['sub'] = sub
     if cmd:
         entry['_cmd'] = cmd
+    if orig_cmd:
+        entry['_orig_cmd'] = cmd
 
     sdb = load(project.sketch_db(root))
     sk_list: YamlList[YamlDict] = sdb['sketches']

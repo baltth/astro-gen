@@ -536,19 +536,20 @@ def test_add_sketch(db_mock):
     data = image_data(second_name='Alpha UMi',
                       second_img='2026/alpha-umi-20260816.jpg')
 
-    add._add_sketch(root='/the/root', data=data, cmd='astro-gen /the/root add -i x.jpg')
+    add._add_sketch(root='/the/root', data=data, cmd=['astro-gen /the/root add -i x.jpg'])
 
     db_mock.add_sketch.assert_called_once_with(
         root='/the/root',
         full='2026/c47-na-20260816.jpg',
         scan='2026/cluster.jpg',
         sub=['2026/c47-20260816.jpg', '2026/alpha-umi-20260816.jpg'],
-        cmd=['astro-gen /the/root add -i x.jpg'])
+        cmd=['astro-gen /the/root add -i x.jpg'],
+        orig_cmd=None)
 
 
 def test_add_sketch_single_object(db_mock):
 
-    add._add_sketch(root='/the/root', data=image_data(), cmd='the cmd')
+    add._add_sketch(root='/the/root', data=image_data(), cmd=['the cmd'])
 
     # the missing second image is dropped
     assert db_mock.add_sketch.call_args.kwargs['sub'] == ['2026/c47-20260816.jpg']
@@ -559,7 +560,7 @@ def test_add_sketch_full_page(db_mock):
     data = image_data()
     del data['first_img']
 
-    add._add_sketch(root='/the/root', data=data, cmd='the cmd')
+    add._add_sketch(root='/the/root', data=data, cmd=['the cmd'])
 
     assert db_mock.add_sketch.call_args.kwargs['sub'] == []
 
@@ -917,17 +918,6 @@ def test_reproc_all_sketches(project_root, sketches_mock, add_images_mock, db_mo
 
     assert add_images_mock.call_count == 2
     assert db_mock.add_sketch.call_count == 2
-
-
-def test_reproc_all_commands_of_a_sketch(project_root, sketches_mock, add_images_mock):
-
-    other_cmd = f'{ADD_CMD} -o2 \'Alpha UMi\''
-    sketches_mock.return_value = [sketch_entry(_cmd=[ADD_CMD, other_cmd])]
-
-    add.reproc(project_root=project_root, arg_parser=arg_parser())
-
-    assert add_images_mock.call_count == 2
-    assert add_images_mock.call_args.kwargs['second_object'] == 'Alpha UMi'
 
 
 def test_reproc_positive_image(project_root, sketches_mock, add_images_mock):

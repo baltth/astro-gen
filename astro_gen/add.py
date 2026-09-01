@@ -14,7 +14,7 @@ from pathlib import Path
 from shutil import copy as cp
 from shlex import join as shjoin, split as shsplit
 import sys
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 def _default_cutouts(meta: Dict) -> List[str]:
@@ -173,7 +173,7 @@ def _dest_file(file: Path, add_new: bool) -> Path:
     return file
 
 
-def _add_sketch(root: str, data: Dict, cmd: str = ''):
+def _add_sketch(root: str, data: Dict, cmd: Optional[List[str]] = None, orig_cmd: Optional[List[str]] = None):
 
     print('Add sketches ...')
 
@@ -184,13 +184,14 @@ def _add_sketch(root: str, data: Dict, cmd: str = ''):
 
     if not cmd:
         this_app = Path(sys.argv[0]).name
-        cmd = shjoin([this_app] + sys.argv[1:])
+        cmd = [shjoin([this_app] + sys.argv[1:])]
 
     db.add_sketch(root=root,
                   full=data['cropped_img'],
                   scan=data['scan'],
                   sub=[i for i in imgs if i],
-                  cmd=[cmd])
+                  cmd=cmd,
+                  orig_cmd=orig_cmd)
 
 
 def _add_observation(root: str, name: str, img_date: datetime):
@@ -318,7 +319,9 @@ def _convert_command(orig_cmd: str) -> str:
     # '-i main_image -c scan_file' -> '-i scan_file'
     cmd, scan_file = drop_opt_val(orig_cmd, ['-c', '--scan'])
     if scan_file:
-        replace_opt_val(cmd, ['-i', '--img'], new_val=scan_file)
+        cmd, orig_img = replace_opt_val(cmd, ['-i', '--img'], new_val=scan_file)
+        if orig_img == scan_file:
+            cmd += ' --positive'
 
     # '-x 40 -y 100' -> '-f 40,100'
     cmd, x_o = drop_opt_val(cmd, ['-x', '--x-offset'])
@@ -339,19 +342,29 @@ def _reproc_one(sketch: Dict, project_root: str, arg_parser: argparse.ArgumentPa
     print(f'Reprocessing sketch {sketch['full']} ...')
 
     commands = sketch.get('_cmd', [])
-    commands = [c for c in commands if ' add ' in c]
-    if not commands:
+    if isinstance(commands, str):
+        commands = [commands]
+    if not any(c for c in commands if ' add ' in c):
         print('Skipping, sketch has no command data for \'add\'')
         return
 
-    for c in commands:
-        try:
+    orig_commands = sketch.get('_orig_cmd', commands)
+    new_commands = []
 
-            cmd_orig = c
-            print(f'Command: {c}')
-            cmd = _convert_command(c)
-            if cmd != cmd_orig:
-                print(f'Normalized to {cmd}')
+    for i, c in enumerate(commands):
+
+        cmd_orig = c
+        print(f'Command #{i+1}: {c}')
+        cmd = _convert_command(c)
+        if cmd != cmd_orig:
+            print(f'Normalized to {cmd}')
+
+        new_commands.append(cmd)
+        if ' add ' not in cmd:
+            continue
+
+        assert i == len(orig_commands) - 1
+        try:
             proc_args = arg_parser.parse_args(shsplit(cmd)[1:])
 
             sketch_data = _add_images(project_root=project_root,
@@ -364,7 +377,10 @@ def _reproc_one(sketch: Dict, project_root: str, arg_parser: argparse.ArgumentPa
                                       simple=proc_args.simple,
                                       add_new=False)
 
-            _add_sketch(root=project_root, data=sketch_data, cmd=c)
+            _add_sketch(root=project_root,
+                        data=sketch_data,
+                        cmd=new_commands,
+                        orig_cmd=orig_commands if orig_commands != commands else [])
 
         # argparse exits on a malformed command line, catch it too
         # to keep reprocessing the remaining sketches
