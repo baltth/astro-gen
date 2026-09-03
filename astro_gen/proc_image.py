@@ -14,7 +14,7 @@ import yaml
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 from PIL.Image import Image as ImageT
 
-from .image_curves import Curves, apply
+from .image_curves import Curves, apply, invert_image
 
 ARTIST_TAG = 0x013b
 COPYRIGHT_TAG = 0x8298
@@ -353,7 +353,7 @@ def _create_images(img: ImageT,
 
     # LW resize method works on inverted images, thus we invert, resize, and invert again for the positive
 
-    inv = apply(pos, Curves.invert())
+    inv = invert_image(pos)
     inv = _enhance_inv(inv, ENH_STRENGTH)
     add(inv, name, INV)
 
@@ -369,7 +369,7 @@ def _create_images(img: ImageT,
             inv_resized = inv.copy()
 
         add(inv_resized, name, INV, size_qual)
-        add(apply(inv_resized, Curves.invert()), name, size_qual)
+        add(invert_image(inv_resized), name, size_qual)
 
     if add_enhanced:
         created = list(images.keys())

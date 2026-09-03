@@ -12,6 +12,16 @@ from PIL import Image, ImageDraw
 from PIL.Image import Image as ImageT
 
 CURVE_LEN = 256
+MAX_LEVEL = CURVE_LEN - 1
+
+# Rec. 709 luminance weights, summing up to exactly 1.0
+LUMA_WEIGHTS = (0.2126, 0.7152, 0.0722)
+
+# Luminance below this level fades the gain over to a plain offset,
+# see _apply_to_luminance()
+GAIN_FADE_LEVEL = 8.0
+
+EPSILON = 1e-6
 
 CurveXY = List[Tuple[float, float]]
 CurveFunc = Callable[[float], float]
@@ -21,16 +31,14 @@ LookupTable = List[float]
 
 NORMAL_RANGE_TSH = 1.1
 
+INVERT_CURVE = [(0, 255), (255, 0)]
+
 
 class Curves:
 
     @staticmethod
     def linear() -> CurveFunc:
         return lambda x: x
-
-    @staticmethod
-    def invert() -> CurveFunc:
-        return lambda x: (1.0 - 1/CURVE_LEN) - x
 
     @staticmethod
     def highlights(strength: float) -> CurveFunc:
@@ -70,27 +78,27 @@ class Curves:
         assert -1.0 <= strength <= 1.0
 
         SCALE = 0.2
+        TSH = 0.5
 
-        def neg_fn(x: float):
-            assert strength < 0
+        def _fn(x: float) -> float:
             assert 0 <= x <= 1.0
-            val = x + (SCALE * (1 - x) * strength * Curves._mask(x))
+            if x >= TSH:
+                return x
+            # A tight mask over [0, TSH] keeps the black point in place,
+            # the effect peaks in the middle of the shadows.
+            val = x + (SCALE * TSH * strength * Curves._tight_mask(x / TSH))
             return max(val, 0)
 
-        def pos_fn(x: float):
-            TSH = 0.5
-            assert strength >= 0
-            assert 0 <= x <= 1.0
-            if x < TSH:
-                val = x + (SCALE * (TSH - x) * strength * Curves._mask(TSH - x))
-                return max(val, 0)
-            return x
-
-        return pos_fn if strength >= 0 else neg_fn
+        return _fn
 
     @staticmethod
     def _mask(x: float) -> float:
         return sqrt(sin(x * pi))
+
+    @staticmethod
+    def _tight_mask(x: float) -> float:
+        """A narrower mask than _mask(), fading out smoothly at both ends."""
+        return sin(x * pi) ** 2
 
     @staticmethod
     def combine(curve: CurveFunc, *args) -> CurveFunc:
@@ -175,9 +183,56 @@ def populate(c: Curve) -> LookupTable:
     return denormalize(_populate_from_xy(c))
 
 
-def apply(image: ImageT, curve: Curve) -> ImageT:
+def _apply_to_luminance(image: ImageT, lut: LookupTable) -> ImageT:
+    """
+    Apply the lookup table to the luminance of each pixel and scale
+    its channels by the resulting gain. This keeps the R:G:B ratios,
+    thus the color balance, which an independent per-channel mapping
+    would distort wherever the curve is steep, flat, or clipping.
+    """
+    if image.mode != 'RGB':
+        raise ValueError(f'RGB image is needed, got {image.mode}')
+
+    rgb = np.asarray(image, dtype=np.float32)
+    lum = rgb @ np.asarray(LUMA_WEIGHTS, dtype=np.float32)
+    target = np.interp(lum,
+                       np.arange(CURVE_LEN, dtype=np.float32),
+                       np.asarray(lut, dtype=np.float32))
+
+    # Scaling by target/lum blows up in the deepest shadows - a lifted
+    # near-black pixel would turn into a saturated one - so below
+    # GAIN_FADE_LEVEL the gain is faded over to adding the difference.
+    # Both reach the target luminance exactly, as the weights sum to 1.
+    gain = np.divide(target, lum, out=np.zeros_like(lum), where=lum > EPSILON)
+    scaled = rgb * gain[..., None]
+    offset = rgb + (target - lum)[..., None]
+    fade = np.clip(lum / GAIN_FADE_LEVEL, 0, 1)[..., None]
+    res = (fade * scaled) + ((1 - fade) * offset)
+
+    # A clipping channel would shift the balance again, so desaturate
+    # towards the target luminance instead of letting the clamp do it.
+    peak = res.max(axis=-1)
+    excess = np.maximum(peak - MAX_LEVEL, 0)
+    ratio = np.clip(excess / np.maximum(peak - target, EPSILON), 0, 1)
+    res += (target[..., None] - res) * ratio[..., None]
+
+    return Image.fromarray(np.clip(res + 0.5, 0, MAX_LEVEL).astype(np.uint8))
+
+
+def apply(image: ImageT, curve: Curve, per_channel: bool = False) -> ImageT:
+    """
+    Apply a curve to an image, keeping the color balance of the pixels.
+    Pass per_channel=True to map R, G, and B independently, e.g. for
+    curves which are not tonal adjustments like an invert.
+    """
     lut = populate(curve)
-    return image.point(lut * 3)  # Apply the same curve to R, G, and B
+    if per_channel:
+        return image.point(lut * 3)  # Apply the same curve to R, G, and B
+    return _apply_to_luminance(image, lut)
+
+
+def invert_image(image: ImageT) -> ImageT:
+    return apply(image=image, curve=INVERT_CURVE, per_channel=True)
 
 
 def annotate_image(image: ImageT, curve: Optional[Curve] = None) -> ImageT:
@@ -232,9 +287,8 @@ def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Option
 
     _annot_and_save(image, Curves.linear(), 'base')
 
-    c_inv = Curves.invert()
-    img_inv = apply(image, c_inv)
-    _annot_and_save(img_inv, c_inv, 'inv')
+    img_inv = apply(image, INVERT_CURVE, per_channel=True)
+    _annot_and_save(img_inv, INVERT_CURVE, 'inv')
 
     def series(curve_type, name: str, rng: Tuple[float, float, float]):
 

@@ -35,20 +35,6 @@ def test_curves_linear():
     assert image_curves.populate(Curves.linear()) == LINEAR_LUT
 
 
-# Curves.invert()
-
-def test_curves_invert():
-
-    assert image_curves.populate(Curves.invert()) == list(reversed(LINEAR_LUT))
-
-
-def test_curves_invert_is_its_own_inverse():
-
-    inv = Curves.invert()
-    assert inv(inv(0.0)) == pytest.approx(0.0)
-    assert inv(inv(0.5)) == pytest.approx(0.5)
-
-
 # Curves.highlights()
 
 def test_curves_highlights_zero_strength_is_linear():
@@ -105,16 +91,28 @@ def test_curves_shadows_positive_brightens_the_shadows_only():
     assert lut[180:] == LINEAR_LUT[180:]
     assert all(v >= lin for v, lin in zip(lut, LINEAR_LUT))
     assert any(v > lin for v, lin in zip(lut, LINEAR_LUT))
+    # the black point is pinned by the tight mask
+    assert lut[0] == 0
 
 
-def test_curves_shadows_negative_darkens():
+def test_curves_shadows_negative_darkens_the_shadows_only():
 
     lut = image_curves.populate(Curves.shadows(-1.0))
+    # above a specific threshold the curve is untouched
+    assert lut[180:] == LINEAR_LUT[180:]
     assert all(v <= lin for v, lin in zip(lut, LINEAR_LUT))
     assert any(v < lin for v, lin in zip(lut, LINEAR_LUT))
     # the ends are pinned by the mask
     assert lut[0] == 0
     assert lut[-1] == CURVE_LEN - 1
+
+
+def test_curves_shadows_is_symmetric_in_strength():
+
+    pos = image_curves.populate(Curves.shadows(1.0))
+    neg = image_curves.populate(Curves.shadows(-1.0))
+    assert [p - lin for p, lin in zip(pos, LINEAR_LUT)] == \
+           [lin - n for n, lin in zip(neg, LINEAR_LUT)]
 
 
 def test_curves_shadows_strength_is_limited():
@@ -182,6 +180,18 @@ def test_curves_mask():
     assert Curves._mask(0.25) == pytest.approx(Curves._mask(0.75))
 
 
+# Curves._tight_mask()
+
+def test_curves_tight_mask():
+
+    assert Curves._tight_mask(0.0) == pytest.approx(0.0, abs=1e-6)
+    assert Curves._tight_mask(1.0) == pytest.approx(0.0, abs=1e-6)
+    assert Curves._tight_mask(0.5) == pytest.approx(1.0)
+    assert Curves._tight_mask(0.25) == pytest.approx(Curves._tight_mask(0.75))
+    # it is narrower than _mask()
+    assert Curves._tight_mask(0.25) < Curves._mask(0.25)
+
+
 # Curves.combine()
 
 def test_curves_combine_single_curve_is_returned_as_is():
@@ -203,12 +213,6 @@ def test_curves_combine_more_than_two_curves():
 
     lift = (lambda x: x + 0.1)
     assert Curves.combine(lift, lift, lift)(0.1) == pytest.approx(0.4)
-
-
-def test_curves_combine_inverse_pair_is_linear():
-
-    c = Curves.combine(Curves.invert(), Curves.invert())
-    assert image_curves.populate(c) == LINEAR_LUT
 
 
 # is_normal_range()
@@ -392,17 +396,37 @@ def test_apply_linear_keeps_the_image():
     assert list(res.getdata()) == list(img.getdata())
 
 
-def test_apply_curve_is_used_for_all_channels():
+def test_apply_keeps_the_color_balance():
 
-    img = image_of([(0, 10, 255)])
-    res = image_curves.apply(img, Curves.invert())
-    assert list(res.getdata()) == [(255, 245, 0)]
+    img = image_of([(60, 70, 100), (120, 130, 160)])
+    res = image_curves.apply(img, Curves.shadows(1.0))
+    # the ratios of the shadow pixel are kept, a per channel mapping
+    # would flatten it to (85, 95, 110)
+    assert list(res.getdata()) == [(81, 95, 136), (120, 130, 160)]
+
+
+def test_apply_fades_the_gain_in_the_deepest_shadows():
+
+    img = image_of([(2, 4, 8)])
+    res = image_curves.apply(img, [(0.0, 0.1), (1.0, 1.0)])
+    # a curve lifting the black point needs a huge gain in the darks,
+    # a plain one would scale this to (15, 30, 60), amplifying the
+    # noise, so it is faded towards an offset
+    assert list(res.getdata()) == [(21, 29, 46)]
+
+
+def test_apply_keeps_the_color_balance_on_clipping():
+
+    img = image_of([(250, 200, 180)])
+    res = image_curves.apply(img, Curves.highlights(1.0))
+    # R clips, so the pixel is desaturated instead of shifting its hue
+    assert list(res.getdata()) == [(255, 237, 230)]
 
 
 def test_apply_keeps_the_input_image():
 
     img = image_of([(10, 20, 30)])
-    res = image_curves.apply(img, Curves.invert())
+    res = image_curves.apply(img, Curves.highlights(1.0), per_channel=True)
     assert list(img.getdata()) == [(10, 20, 30)]
     assert res.mode == img.mode
     assert res.size == img.size
@@ -411,7 +435,7 @@ def test_apply_keeps_the_input_image():
 def test_apply_of_xy_curve():
 
     img = image_of([(0, 10, 255)])
-    res = image_curves.apply(img, inverting_xy_curve())
+    res = image_curves.apply(img, inverting_xy_curve(), per_channel=True)
     assert list(res.getdata()) == [(255, 245, 0)]
 
 
