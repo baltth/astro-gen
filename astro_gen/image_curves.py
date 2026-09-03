@@ -8,7 +8,7 @@ from natsort import natsorted
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 from PIL.Image import Image as ImageT
 
 CURVE_LEN = 256
@@ -260,8 +260,18 @@ def annotate_image(image: ImageT, curve: Optional[Curve] = None) -> ImageT:
 
 def gradient_image() -> ImageT:
 
-    image = Image.linear_gradient(mode='L').resize((2*CURVE_LEN, 2*CURVE_LEN))
-    return image.transpose(Image.Transpose.ROTATE_90).convert(mode='RGB')
+    # Standard deviation of the dithering noise of the generated gradient, in levels
+    DITHER_SIGMA = 2.0
+
+    size = (2*CURVE_LEN, 2*CURVE_LEN)
+    image = Image.linear_gradient(mode='L').resize(size)
+    image = image.transpose(Image.Transpose.ROTATE_90)
+
+    # Gaussian noise is centered at 128, the offset keeps the mean level intact
+    noise = Image.effect_noise(size, DITHER_SIGMA)
+    image = ImageChops.add(image, noise, offset=-128)
+
+    return image.convert(mode='RGB')
 
 
 def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Optional[str] = None):
