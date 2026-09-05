@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
+import argparse
+from pathlib import Path
+import sys
+
 from . import add
 from . import check
 from . import proc_image
 from . import project
 from . import regen
-
-from pathlib import Path
-
-import argparse
-import sys
 
 
 def _regen_cmd(args: argparse.Namespace):
@@ -59,12 +58,12 @@ def _proc_cmd(args: argparse.Namespace):
         mask_file = ''
 
     proc_image.process(img=args.image,
-                    out_dir=args.out_dir,
-                    cut_offset=args.cut_offset,
-                    cutouts=args.cutouts,
-                    mask=str(mask_file),
-                    simple_resize=args.simple,
-                    meta=meta_file)
+                       out_dir=args.out_dir,
+                       cut_offset=args.cut_offset,
+                       cutouts=args.cutouts,
+                       mask=str(mask_file),
+                       simple_resize=args.simple,
+                       cfg=meta_file)
 
 
 def arg_parser() -> argparse.ArgumentParser:

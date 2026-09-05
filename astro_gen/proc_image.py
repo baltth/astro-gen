@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont, ExifTags
 from PIL.Image import Image as ImageT
 
 from .image_curves import Curves, apply, invert_image
+from . import project_cfg
 
 ARTIST_TAG = 0x013b
 COPYRIGHT_TAG = 0x8298
@@ -393,22 +394,23 @@ def process(img: Union[str, ImageT],
             cutouts: List[str] = [],
             simple_resize: bool = False,
             mask: Optional[Union[str, ImageT]] = None,
-            meta: Union[str, Dict] = ''):
+            cfg: Union[str, Dict] = ''):
 
     def raise_invalid_type(**kwargs):
         k, v = list(kwargs.items())[0]
         raise ValueError(f'Invalid type for {k}: {type(v)}')
 
-    if meta:
-        if isinstance(meta, str):
-            meta = _load_yaml(meta)
-        elif not isinstance(meta, dict):
-            raise_invalid_type(copyright_data=meta)
+    if cfg:
+        if isinstance(cfg, str):
+            cfg = _load_yaml(cfg)
+        elif not isinstance(cfg, dict):
+            raise_invalid_type(copyright_data=cfg)
     else:
-        meta = None
+        cfg = None
 
     if mask:
         if isinstance(mask, str):
+            print(mask)
             mask = Image.open(mask)
         elif not isinstance(mask, ImageT):
             raise_invalid_type(mask=mask)
@@ -427,7 +429,7 @@ def process(img: Union[str, ImageT],
     out_path = _prepare_out_dir(out_dir)
 
     save_ctx = SaveContext(out_path=out_path,
-                           meta=meta,
+                           meta=cfg,
                            exif_desc='')
 
     _save(save_ctx, src, 'orig')
@@ -447,7 +449,8 @@ def process(img: Union[str, ImageT],
                    enhance_mask=mask,
                    add_enhanced=True)
 
-    sizes = [(MID, MID_WIDTH), (SMALL, SMALL_WIDTH)]
+    sizes = [(MID, project_cfg.mid_width(cfg)),
+             (SMALL, project_cfg.small_width(cfg))]
 
     for i, cr in enumerate(cutouts):
         img = _crop(full, cr)

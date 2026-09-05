@@ -7,6 +7,7 @@ from . import db
 from . import fetch
 from . import proc_image
 from . import project
+from . import project_cfg
 
 import argparse
 from datetime import datetime
@@ -16,30 +17,6 @@ from shlex import join as shjoin, split as shsplit
 import sys
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional, Tuple
-
-
-def _image_meta(meta: Dict) -> Dict:
-    image_meta = meta.get('images', {})
-    assert isinstance(image_meta, dict)
-    return image_meta
-
-
-def _default_cutouts(meta: Dict) -> List[str]:
-
-    DEFAULT_CUTOUTS = ['100%x60%', '100%x57%+0+43%']
-
-    image_meta = _image_meta(meta)
-    if 'cutouts' in image_meta:
-        cutouts = image_meta['cutouts']
-    else:
-        cutouts = DEFAULT_CUTOUTS
-
-    assert isinstance(cutouts, list)
-    return cutouts
-
-
-def _default_mask(meta: Dict) -> str:
-    return _image_meta(meta).get('enhance_mask', '')
 
 
 def _add_images(project_root: str,
@@ -56,7 +33,7 @@ def _add_images(project_root: str,
 
     print('Processing images ...')
 
-    meta = project.load_meta(project_root)
+    cfg = project_cfg.load(project_root)
 
     if not work_dir:
         work_dir = 'tmp'
@@ -68,15 +45,19 @@ def _add_images(project_root: str,
     else:
         date = proc_image.image_date(img)
 
-    cutouts = ['100%x100%'] if full_page else _default_cutouts(meta)
+    cutouts = ['100%x100%'] if full_page else project_cfg.cutouts(cfg)
+
+    mask = project_cfg.enhance_mask(cfg)
+    if not Path(mask).is_absolute():
+        mask = (Path(project_root) / mask).resolve()
 
     proc_image.process(img,
                        out_dir=work_dir,
                        cut_offset=cut_offset,
                        cutouts=cutouts,
                        simple_resize=simple,
-                       mask=_default_mask(meta),
-                       meta=meta)
+                       mask=str(mask),
+                       cfg=cfg)
 
     print('Adding files to project ...')
 

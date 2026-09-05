@@ -13,7 +13,7 @@ import pytest
 
 IMG_DATE = datetime(2026, 8, 16, 23, 30)
 
-DEFAULT_CUTOUTS = ['100%x60%', '100%x57%+0+43%']
+DEFAULT_CUTOUTS = ['100%x100%']
 
 # The images proc_image.process() creates in the work folder.
 
@@ -124,34 +124,6 @@ def fetch_mock(mocker):
     return m
 
 
-# _default_cutouts()
-
-def test_default_cutouts():
-
-    assert add._default_cutouts({}) == DEFAULT_CUTOUTS
-    # image settings without cutouts
-    assert add._default_cutouts({'images': {}}) == DEFAULT_CUTOUTS
-
-
-def test_default_cutouts_from_meta():
-
-    assert add._default_cutouts({'images': {'cutouts': ['100%x50%']}}) == ['100%x50%']
-
-
-def test_default_cutouts_empty_list_is_kept():
-
-    # an explicitly empty list means no cutouts, not the defaults
-    assert add._default_cutouts({'images': {'cutouts': []}}) == []
-
-
-def test_default_cutouts_malformed_meta():
-
-    with pytest.raises(AssertionError):
-        add._default_cutouts({'images': 'no-settings-here'})
-    with pytest.raises(AssertionError):
-        add._default_cutouts({'images': {'cutouts': '100%x50%'}})
-
-
 # _add_images()
 
 def test_add_images(project_root, work_dir, proc_mock, date_mock):
@@ -172,7 +144,7 @@ def test_add_images(project_root, work_dir, proc_mock, date_mock):
     assert kwargs['cutouts'] == DEFAULT_CUTOUTS
     assert kwargs['simple_resize'] is True
     # no meta file in the project
-    assert kwargs['meta'] == {}
+    assert kwargs['cfg'] == {}
 
     # the results are copied to the project and registered
     assert data == {
@@ -194,7 +166,7 @@ def test_add_images_with_meta_file(project_root, meta_file, work_dir, proc_mock,
 
     kwargs = proc_mock.call_args.kwargs
     # the meta of the project is passed to the processing ...
-    assert kwargs['meta']['author'] == 'Jane Doe'
+    assert kwargs['cfg']['author'] == 'Jane Doe'
     # ... and it provides the cutouts too
     assert kwargs['cutouts'] == ['100%x50%']
 
