@@ -18,12 +18,17 @@ from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional, Tuple
 
 
+def _image_meta(meta: Dict) -> Dict:
+    image_meta = meta.get('images', {})
+    assert isinstance(image_meta, dict)
+    return image_meta
+
+
 def _default_cutouts(meta: Dict) -> List[str]:
 
     DEFAULT_CUTOUTS = ['100%x60%', '100%x57%+0+43%']
 
-    image_meta = meta.get('images', {})
-    assert isinstance(image_meta, dict)
+    image_meta = _image_meta(meta)
     if 'cutouts' in image_meta:
         cutouts = image_meta['cutouts']
     else:
@@ -31,6 +36,10 @@ def _default_cutouts(meta: Dict) -> List[str]:
 
     assert isinstance(cutouts, list)
     return cutouts
+
+
+def _default_mask(meta: Dict) -> str:
+    return _image_meta(meta).get('enhance_mask', '')
 
 
 def _add_images(project_root: str,
@@ -66,6 +75,7 @@ def _add_images(project_root: str,
                        cut_offset=cut_offset,
                        cutouts=cutouts,
                        simple_resize=simple,
+                       mask=_default_mask(meta),
                        meta=meta)
 
     print('Adding files to project ...')

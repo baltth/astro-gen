@@ -3,6 +3,7 @@
 from astro_gen import image_curves
 from astro_gen.image_curves import Curves, CURVE_LEN
 
+import numpy as np
 from PIL import Image
 from PIL.Image import Image as ImageT
 from typing import List, Tuple
@@ -25,6 +26,13 @@ def image_of(pixels: List[Tuple[int, int, int]]) -> ImageT:
     """An 1 pixel high RGB image of the given pixels."""
     img = Image.new(mode='RGB', size=(len(pixels), 1))
     img.putdata(pixels)
+    return img
+
+
+def mask_of(levels: List[int]) -> ImageT:
+    """An 1 pixel high mask image of the given levels."""
+    img = Image.new(mode='L', size=(len(levels), 1))
+    img.putdata(levels)
     return img
 
 
@@ -443,3 +451,131 @@ def test_apply_needs_an_rgb_image():
 
     with pytest.raises(ValueError):
         image_curves.apply(image_of([(10, 20, 30)]).convert(mode='L'), Curves.linear())
+
+
+# _mask_weights()
+
+def test_mask_weights_of_an_image():
+
+    w = image_curves._mask_weights(mask_of([0, 128, 255]), size=(3, 1))
+    assert w.shape == (1, 3)
+    assert list(w[0]) == pytest.approx([0.0, 128 / 255, 1.0])
+
+
+def test_mask_weights_of_an_rgb_image_is_its_luminance():
+
+    m = image_of([(255, 255, 255)])
+    w = image_curves._mask_weights(m, size=(1, 1))
+    assert list(w[0]) == pytest.approx([1.0])
+
+
+def test_mask_weights_of_a_float_array_are_taken_as_is():
+
+    w = image_curves._mask_weights(np.array([[0.0, 0.25, 1.0]]), size=(3, 1))
+    assert list(w[0]) == pytest.approx([0.0, 0.25, 1.0])
+
+
+def test_mask_weights_of_an_integer_array_are_levels():
+
+    w = image_curves._mask_weights(np.array([[0, 255]]), size=(2, 1))
+    assert list(w[0]) == pytest.approx([0.0, 1.0])
+
+
+def test_mask_weights_are_clamped():
+
+    w = image_curves._mask_weights(np.array([[-1.0, 2.0]]), size=(2, 1))
+    assert list(w[0]) == pytest.approx([0.0, 1.0])
+
+
+def test_mask_weights_of_a_mismatching_mask():
+
+    with pytest.raises(ValueError):
+        image_curves._mask_weights(mask_of([0, 255]), size=(3, 1))
+    with pytest.raises(ValueError):
+        image_curves._mask_weights(np.array([[0.0, 1.0]]), size=(3, 1))
+
+
+# blend()
+
+def test_blend():
+
+    base = image_of([(0, 0, 0)] * 3)
+    overlay = image_of([(100, 200, 40)] * 3)
+    res = image_curves.blend(base, overlay, mask_of([0, 128, 255]))
+    assert list(res.getdata()) == [(0, 0, 0), (50, 100, 20), (100, 200, 40)]
+
+
+def test_blend_of_grayscale_images():
+
+    res = image_curves.blend(mask_of([0, 0]), mask_of([200, 200]), np.array([[0.0, 0.5]]))
+    assert list(res.getdata()) == [0, 100]
+
+
+def test_blend_keeps_the_input_images():
+
+    base = image_of([(10, 20, 30)])
+    overlay = image_of([(40, 50, 60)])
+    res = image_curves.blend(base, overlay, np.array([[0.5]]))
+    assert list(base.getdata()) == [(10, 20, 30)]
+    assert list(overlay.getdata()) == [(40, 50, 60)]
+    assert res.mode == base.mode
+    assert res.size == base.size
+
+
+def test_blend_of_mismatching_images():
+
+    with pytest.raises(ValueError):
+        image_curves.blend(image_of([(0, 0, 0)]), mask_of([0]), np.array([[1.0]]))
+    with pytest.raises(ValueError):
+        image_curves.blend(image_of([(0, 0, 0)]), image_of([(0, 0, 0)] * 2), np.array([[1.0]]))
+
+
+# apply() with a mask
+
+def test_apply_with_a_mask_adjusts_selectively():
+
+    img = image_of([(60, 70, 100)] * 3)
+    curve = Curves.shadows(1.0)
+    full = list(image_curves.apply(img, curve).getdata())[0]
+
+    res = image_curves.apply(img, curve, mask=np.array([[0.0, 1.0, 0.5]]))
+    masked = list(res.getdata())
+    # the fully masked out pixel is untouched, the fully masked in one
+    # gets the whole adjustment, the middle one goes halfway
+    assert masked[0] == (60, 70, 100)
+    assert masked[1] == full
+    assert masked[2] == pytest.approx([(a + b) / 2 for a, b in zip(masked[0], full)], abs=1.0)
+
+
+def test_apply_with_a_mask_blends_before_quantization():
+
+    img = image_of([(60, 70, 100)])
+    curve = Curves.shadows(1.0)
+
+    assert list(image_curves.apply(img, curve).getdata()) == [(81, 95, 136)]
+
+    res = image_curves.apply(img, curve, mask=np.array([[0.5]]))
+    # the unrounded green of the full adjustment is 94.99, so the half
+    # strength one is 82.49 -> 82, and not the 83 which a blending of
+    # the quantized images would give
+    assert list(res.getdata()) == [(71, 82, 118)]
+
+
+def test_apply_with_a_black_mask_keeps_the_image():
+
+    img = image_of([(10, 20, 30), (200, 210, 220)])
+    res = image_curves.apply(img, Curves.ambient(1.0), mask=mask_of([0, 0]))
+    assert list(res.getdata()) == list(img.getdata())
+
+
+def test_apply_with_a_mask_per_channel():
+
+    img = image_of([(0, 10, 255), (0, 10, 255)])
+    res = image_curves.apply(img, inverting_xy_curve(), per_channel=True, mask=mask_of([0, 255]))
+    assert list(res.getdata()) == [(0, 10, 255), (255, 245, 0)]
+
+
+def test_apply_with_a_mismatching_mask():
+
+    with pytest.raises(ValueError):
+        image_curves.apply(image_of([(10, 20, 30)]), Curves.linear(), mask=mask_of([0, 255]))

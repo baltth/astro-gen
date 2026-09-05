@@ -51,10 +51,18 @@ def _proc_cmd(args: argparse.Namespace):
     if meta_file and not Path(meta_file).is_file():
         meta_file = ''
 
+    if args.mask:
+        mask_file = Path(args.mask)
+        if not mask_file.is_absolute():
+            mask_file = (Path(args.project_root) / mask_file).resolve()
+    else:
+        mask_file = ''
+
     proc_image.process(img=args.image,
                     out_dir=args.out_dir,
                     cut_offset=args.cut_offset,
                     cutouts=args.cutouts,
+                    mask=str(mask_file),
                     simple_resize=args.simple,
                     meta=meta_file)
 
@@ -100,6 +108,7 @@ def arg_parser() -> argparse.ArgumentParser:
     proc_parser.add_argument('-p', '--positive', action='store_true', help='Source image is positive')
     proc_parser.add_argument('-f', '--cut-offset', default='0,0')
     proc_parser.add_argument('-c', '--cutouts', nargs='+', help='Cutout images in \'WxH+X+Y\' format', default=[])
+    proc_parser.add_argument('-m', '--mask', help='Enhance mask file', default='')
     proc_parser.add_argument('--simple', help='Use simple resize instead of \'luminance weighted\' method',
                              action='store_true')
     proc_parser.add_argument('-o', '--out-dir', help='Output directory, defaults to ./tmp', default='./tmp')

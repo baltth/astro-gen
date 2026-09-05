@@ -3,7 +3,6 @@
 from . import common
 from . import project
 from .datatypes import ObsData, Object, ObjectData, SketchData, create
-from pprint import pprint
 
 from copy import deepcopy
 from dataclasses import asdict
@@ -101,6 +100,7 @@ def save(db: str, data: Dict):
     yaml.dump(data=data,
               stream=Path(db))
 
+
 def _normalize_list_entry_on_update(e: YamlDict):
     return
     keys = list(e.keys())
@@ -108,7 +108,7 @@ def _normalize_list_entry_on_update(e: YamlDict):
         e.yaml_set_comment_before_after_key(k, before=None, after=None)
     e.yaml_set_comment_before_after_key(keys[0], before='', after=None)
     e.yaml_set_comment_before_after_key(keys[-1], before=None, after='')
-    
+
 
 def update_in_list(l: YamlList, entry: Dict, key_match: Callable) -> bool:
     for e in l:
@@ -117,6 +117,7 @@ def update_in_list(l: YamlList, entry: Dict, key_match: Callable) -> bool:
             _normalize_list_entry_on_update(e)
             return True
     return False
+
 
 def add_to_list(l: YamlList, entry: Dict):
     l.append(entry)

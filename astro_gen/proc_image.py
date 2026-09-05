@@ -207,7 +207,6 @@ def luminance_weighted_downscale(image_array: numpy.ndarray, scale: float):
 
 def _resize_to_width(img: ImageT, w: int, mode: str = 'lw') -> ImageT:
 
-    print(f'Resizing to width {w} ...')
     orig_width, orig_height = img.size
 
     scale = w / orig_width
@@ -269,14 +268,18 @@ def copyright_image(image: str,
     img.save(image, exif=exif.tobytes())
 
 
-def _enhance_pos(img: ImageT, strength: float) -> ImageT:
+def _enhance_pos(img: ImageT, strength: float, mask: Optional[ImageT] = None) -> ImageT:
+    if mask and mask.size != img.size:
+        mask = mask.resize(img.size)
     c = Curves.combine(Curves.ambient(strength), Curves.shadows(strength))
-    return apply(image=img, curve=c)
+    return apply(image=img, curve=c, mask=mask)
 
 
-def _enhance_inv(img: ImageT, strength: float) -> ImageT:
+def _enhance_inv(img: ImageT, strength: float, mask: Optional[ImageT] = None) -> ImageT:
+    if mask and mask.size != img.size:
+        mask = mask.resize(img.size)
     c = Curves.combine(Curves.ambient(strength), Curves.highlights(strength))
-    return apply(image=img, curve=c)
+    return apply(image=img, curve=c, mask=mask)
 
 
 def _prepare_out_dir(out_dir) -> Path:
@@ -337,6 +340,7 @@ def _create_images(img: ImageT,
                    name: str,
                    ctx: SaveContext,
                    sizes: Optional[List[Tuple[str, int]]] = None,
+                   enhance_mask: Optional[ImageT] = None,
                    simple_resize: bool = False,
                    add_enhanced: bool = False):
 
@@ -348,13 +352,13 @@ def _create_images(img: ImageT,
         _save(ctx, i, *args)
         images[args] = i
 
-    pos = _enhance_pos(img, ENH_STRENGTH)
+    pos = _enhance_pos(img, ENH_STRENGTH, enhance_mask)
     add(pos, name)
 
     # LW resize method works on inverted images, thus we invert, resize, and invert again for the positive
 
     inv = invert_image(pos)
-    inv = _enhance_inv(inv, ENH_STRENGTH)
+    inv = _enhance_inv(inv, ENH_STRENGTH, enhance_mask)
     add(inv, name, INV)
 
     if not sizes:
@@ -363,6 +367,7 @@ def _create_images(img: ImageT,
         size_qual, width = s
         assert width > 0
         if width < img.width:
+            print(f'Resizing to width {width} ...')
             method = 'simple' if simple_resize else 'lw'
             inv_resized = _resize_to_width(inv, width, mode=method)
         else:
@@ -375,9 +380,9 @@ def _create_images(img: ImageT,
         created = list(images.keys())
         for qual in created:
             if INV in qual:
-                i_e = _enhance_inv(images[qual], ENH_STRENGTH)
+                i_e = _enhance_inv(images[qual], ENH_STRENGTH, enhance_mask)
             else:
-                i_e = _enhance_pos(images[qual], ENH_STRENGTH)
+                i_e = _enhance_pos(images[qual], ENH_STRENGTH, enhance_mask)
             new_qual = qual + (ENH,)
             add(i_e, *new_qual)
 
@@ -387,6 +392,7 @@ def process(img: Union[str, ImageT],
             cut_offset: str,
             cutouts: List[str] = [],
             simple_resize: bool = False,
+            mask: Optional[Union[str, ImageT]] = None,
             meta: Union[str, Dict] = ''):
 
     def raise_invalid_type(**kwargs):
@@ -400,6 +406,14 @@ def process(img: Union[str, ImageT],
             raise_invalid_type(copyright_data=meta)
     else:
         meta = None
+
+    if mask:
+        if isinstance(mask, str):
+            mask = Image.open(mask)
+        elif not isinstance(mask, ImageT):
+            raise_invalid_type(mask=mask)
+    else:
+        mask = None
 
     if isinstance(img, str):
         print(f'Loading {img} ...')
@@ -421,19 +435,27 @@ def process(img: Union[str, ImageT],
     x_offset, y_offset = parse_offset(cut_offset, src.size)
 
     full = _remove_frame(src, int(x_offset), int(y_offset), 1.0)
+
+    if mask:
+        print('Using enhance mask ...')
+        mask = mask.convert(mode='L').resize(full.size)
+
     _create_images(img=full,
                    name=FULL,
                    ctx=save_ctx,
                    simple_resize=simple_resize,
+                   enhance_mask=mask,
                    add_enhanced=True)
 
     sizes = [(MID, MID_WIDTH), (SMALL, SMALL_WIDTH)]
 
     for i, cr in enumerate(cutouts):
         img = _crop(full, cr)
+        mask_cr = _crop(mask, cr) if mask else None
         _create_images(img=img,
                        name=f'c{i+1}',
                        ctx=save_ctx,
                        sizes=sizes,
                        simple_resize=simple_resize,
+                       enhance_mask=mask_cr,
                        add_enhanced=True)

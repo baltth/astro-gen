@@ -29,6 +29,10 @@ Curve = Union[CurveXY, CurveFunc]
 
 LookupTable = List[float]
 
+# A per pixel weight of an adjustment: an 'L' image or an integer array
+# holds levels of [0, MAX_LEVEL], a float array weights of [0, 1].
+Mask = Union[ImageT, np.ndarray]
+
 NORMAL_RANGE_TSH = 1.1
 
 INVERT_CURVE = [(0, 255), (255, 0)]
@@ -183,21 +187,27 @@ def populate(c: Curve) -> LookupTable:
     return denormalize(_populate_from_xy(c))
 
 
-def _apply_to_luminance(image: ImageT, lut: LookupTable) -> ImageT:
+def _levels_of(image: ImageT) -> np.ndarray:
+    """The channel levels of an image as a float array."""
+    return np.asarray(image, dtype=np.float32)
+
+
+def _image_of(levels: np.ndarray) -> ImageT:
+    """Quantize an array of levels to an image, rounding to the nearest."""
+    return Image.fromarray(np.clip(levels + 0.5, 0, MAX_LEVEL).astype(np.uint8))
+
+
+def _apply_to_luminance(rgb: np.ndarray, lut: LookupTable) -> np.ndarray:
     """
     Apply the lookup table to the luminance of each pixel and scale
     its channels by the resulting gain. This keeps the R:G:B ratios,
     thus the color balance, which an independent per-channel mapping
     would distort wherever the curve is steep, flat, or clipping.
     """
-    if image.mode != 'RGB':
-        raise ValueError(f'RGB image is needed, got {image.mode}')
-
-    rgb = np.asarray(image, dtype=np.float32)
     lum = rgb @ np.asarray(LUMA_WEIGHTS, dtype=np.float32)
     target = np.interp(lum,
                        np.arange(CURVE_LEN, dtype=np.float32),
-                       np.asarray(lut, dtype=np.float32))
+                       np.asarray(lut, dtype=np.float32)).astype(np.float32)
 
     # Scaling by target/lum blows up in the deepest shadows - a lifted
     # near-black pixel would turn into a saturated one - so below
@@ -216,19 +226,88 @@ def _apply_to_luminance(image: ImageT, lut: LookupTable) -> ImageT:
     ratio = np.clip(excess / np.maximum(peak - target, EPSILON), 0, 1)
     res += (target[..., None] - res) * ratio[..., None]
 
-    return Image.fromarray(np.clip(res + 0.5, 0, MAX_LEVEL).astype(np.uint8))
+    return res
 
 
-def apply(image: ImageT, curve: Curve, per_channel: bool = False) -> ImageT:
+def _apply_per_channel(image: ImageT, lut: LookupTable) -> np.ndarray:
+    """Map each channel of an image through the lookup table independently."""
+    return np.asarray(lut, dtype=np.float32)[np.asarray(image)]
+
+
+def _mask_weights(mask: Mask, size: Tuple[int, int]) -> np.ndarray:
+    """The [0, 1] weights of a mask as a float array matching the image size."""
+
+    if isinstance(mask, ImageT):
+        if mask.size != size:
+            raise ValueError(f'Mask of {mask.size} for an image of {size}')
+        weights = np.asarray(mask.convert(mode='L'), dtype=np.float32) / MAX_LEVEL
+    else:
+        arr = np.asarray(mask)
+        if arr.shape != (size[1], size[0]):
+            raise ValueError(f'Mask of {arr.shape} for an image of {size}')
+        weights = arr.astype(np.float32)
+        if np.issubdtype(arr.dtype, np.integer):
+            weights = weights / MAX_LEVEL
+
+    return np.clip(weights, 0, 1)
+
+
+def _blend_levels(base: np.ndarray, overlay: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    if base.ndim == 3:
+        # The same weight applies to each channel of a multichannel image
+        weights = weights[..., None]
+    return base + ((overlay - base) * weights)
+
+
+def blend(base: ImageT, overlay: ImageT, mask: Mask) -> ImageT:
+    """
+    Mix the overlay over the base image by the mask: where the mask
+    is black the base is kept, where it's white the overlay is taken,
+    the values in between fade between the two.
+    """
+    if base.mode != overlay.mode:
+        raise ValueError(f'Blending images of {base.mode} and {overlay.mode}')
+    if base.size != overlay.size:
+        raise ValueError(f'Blending images of {base.size} and {overlay.size}')
+
+    res = _blend_levels(base=_levels_of(base),
+                        overlay=_levels_of(overlay),
+                        weights=_mask_weights(mask, base.size))
+    return _image_of(res)
+
+
+def apply(image: ImageT,
+          curve: Curve,
+          per_channel: bool = False,
+          mask: Optional[Mask] = None) -> ImageT:
     """
     Apply a curve to an image, keeping the color balance of the pixels.
     Pass per_channel=True to map R, G, and B independently, e.g. for
     curves which are not tonal adjustments like an invert.
+    Pass a mask to adjust the image selectively: the curve is applied
+    and the result is blended back over the original by the mask,
+    see blend(). The blending is done on the unquantized result of the
+    curve, so a partially masked pixel keeps the precision of the mix.
     """
+    if not per_channel and image.mode != 'RGB':
+        raise ValueError(f'RGB image is needed, got {image.mode}')
+
     lut = populate(curve)
+
     if per_channel:
-        return image.point(lut * 3)  # Apply the same curve to R, G, and B
-    return _apply_to_luminance(image, lut)
+        if mask is None:
+            # The lookup is exact on integer levels, Pillow does it in place
+            return image.point(lut * 3)  # Apply the same curve to R, G, and B
+        res = _apply_per_channel(image, lut)
+    else:
+        res = _apply_to_luminance(_levels_of(image), lut)
+
+    if mask is not None:
+        res = _blend_levels(base=_levels_of(image),
+                            overlay=res,
+                            weights=_mask_weights(mask, image.size))
+
+    return _image_of(res)
 
 
 def invert_image(image: ImageT) -> ImageT:
@@ -293,7 +372,7 @@ def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Option
     def _annot_and_save(img, curve, name):
         img = annotate_image(image=img, curve=curve)
         out_file = out_path / f'{name}.jpg'
-        img.save(out_path / out_file)
+        img.save(out_path / out_file, quality=95)
 
     _annot_and_save(image, Curves.linear(), 'base')
 
