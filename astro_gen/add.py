@@ -12,7 +12,7 @@ from . import project_cfg
 import argparse
 from datetime import datetime
 from pathlib import Path
-from shutil import copy as cp
+from shutil import copy as cp, move as mv
 from shlex import join as shjoin, split as shsplit
 import sys
 from tempfile import TemporaryDirectory
@@ -387,6 +387,10 @@ def _reproc_one(sketch: Dict, project_root: str, arg_parser: argparse.ArgumentPa
         assert i == len(orig_commands) - 1
         try:
             proc_args = arg_parser.parse_args(shsplit(cmd)[1:])
+
+            # the original images are (re)moved before reprocessing to properly replicate
+            # the 'add new' behavior
+            _rm_sketch_images(sketch, project_root=project_root)
 
             sketch_data = _add_images(project_root=project_root,
                                       img=proc_args.img,
