@@ -51,3 +51,7 @@ def mid_width(cfg: Optional[Dict]) -> int:
 
 def small_width(cfg: Optional[Dict]) -> int:
     return _image_cfg(cfg).get('small_width', 200)
+
+
+def jpg_quality(cfg: Optional[Dict]) -> int:
+    return _image_cfg(cfg).get('jpg_quality', 95)

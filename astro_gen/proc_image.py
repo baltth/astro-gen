@@ -328,13 +328,18 @@ def _save(ctx: SaveContext, img: ImageT, *args):
     name = '-'.join([*args])
     file = ctx.out_path / f'{name}{EXT}'
 
-    if ctx.meta and img.width > ADD_CR_ABOVE:
-        img = _add_copyright_img(img, ctx.meta)
+    if ctx.meta:
+        if img.width > ADD_CR_ABOVE:
+            img = _add_copyright_img(img, ctx.meta)
+        quality = project_cfg.jpg_quality(ctx.meta)
+    else:
+        quality = 95
 
     exif = _update_exif(img, desc=ctx.exif_desc, cr_data=ctx.meta)
 
     print(f'Saving {file} ...')
-    img.save(file, exif=exif.tobytes())
+    assert file.suffix == '.jpg'
+    img.save(file, exif=exif.tobytes(), quality=quality)
 
 
 def _create_images(img: ImageT,
