@@ -14,7 +14,7 @@ import yaml
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 from PIL.Image import Image as ImageT
 
-from .image_curves import Curves, apply, invert_image
+from .image_curves import Curves, apply, invert_image, enhance_inv, LUMA_WEIGHTS
 from . import project_cfg
 
 ARTIST_TAG = 0x013b
@@ -173,9 +173,9 @@ def luminance_weighted_downscale(image_array: numpy.ndarray, scale: float):
     # Check if RGB
     assert len(image_array.shape) == 3
 
-    # RGB image - calculate luminance weights
-    # Standard luminance weights: R=0.299, G=0.587, B=0.114
-    luminance = 0.299 * image_array[:, :, 0] + 0.587 * image_array[:, :, 1] + 0.114 * image_array[:, :, 2]
+    luminance = LUMA_WEIGHTS[0] * image_array[:, :, 0] + \
+        LUMA_WEIGHTS[1] * image_array[:, :, 1] + \
+        LUMA_WEIGHTS[2] * image_array[:, :, 2]
     channels = image_array.shape[2]
     result = numpy.zeros((new_h, new_w, channels), dtype=image_array.dtype)
 
@@ -279,7 +279,7 @@ def _enhance_pos(img: ImageT, strength: float, mask: Optional[ImageT] = None) ->
 def _enhance_inv(img: ImageT, strength: float, mask: Optional[ImageT] = None) -> ImageT:
     if mask and mask.size != img.size:
         mask = mask.resize(img.size)
-    c = Curves.combine(Curves.ambient(strength), Curves.highlights(strength))
+    c = enhance_inv(strength)
     return apply(image=img, curve=c, mask=mask)
 
 
@@ -312,6 +312,7 @@ class SaveContext:
 EXT = '.jpg'
 
 FULL = 'full'
+ORIG = 'orig'
 INV = 'inv'
 MID = 'mid'
 SMALL = 'small'
@@ -350,7 +351,9 @@ def _create_images(img: ImageT,
                    simple_resize: bool = False,
                    add_enhanced: bool = False):
 
-    ENH_STRENGTH = 0.3
+    gate = project_cfg.default_gate(ctx.meta)
+    enh_strength = project_cfg.default_enhance(ctx.meta)
+    enh_extra = project_cfg.extra_enhance(ctx.meta)
 
     images = {}
 
@@ -358,37 +361,45 @@ def _create_images(img: ImageT,
         _save(ctx, i, *args)
         images[args] = i
 
-    pos = _enhance_pos(img, ENH_STRENGTH, enhance_mask)
+    pos = _enhance_pos(img, strength=enh_strength, mask=enhance_mask)
     add(pos, name)
 
-    # LW resize method works on inverted images, thus we invert, resize, and invert again for the positive
-
-    inv = invert_image(pos)
-    inv = _enhance_inv(inv, ENH_STRENGTH, enhance_mask)
+    orig_inv = invert_image(img)
+    # _save(ctx, orig_inv, ORIG, name, INV)
+    if gate > 0.0:
+        orig_inv = apply(image=orig_inv, curve=Curves.gate(gate))
+    inv = _enhance_inv(orig_inv, enh_strength, enhance_mask)
     add(inv, name, INV)
+
+    def resized_img(i: ImageT, width: int, simple: bool) -> ImageT:
+        assert width > 0
+        if width < i.width:
+            print(f'Resizing to width {width} ...')
+            method = 'simple' if simple else 'lw'
+            return _resize_to_width(i, width, mode=method)
+        i.copy()
 
     if not sizes:
         sizes = []
     for s in sizes:
         size_qual, width = s
-        assert width > 0
-        if width < img.width:
-            print(f'Resizing to width {width} ...')
-            method = 'simple' if simple_resize else 'lw'
-            inv_resized = _resize_to_width(inv, width, mode=method)
-        else:
-            inv_resized = inv.copy()
-
+        inv_resized = resized_img(inv, width, simple=simple_resize)
         add(inv_resized, name, INV, size_qual)
-        add(invert_image(inv_resized), name, size_qual)
+        # LW resize method works on inverted images, using simple_resize for positive...
+        pos_resized = resized_img(pos, width, simple=True)
+        add(pos_resized, name, size_qual)
+
+        # orig_inv_resized = resized_img(orig_inv, width)
+        # _save(ctx, orig_inv_resized, ORIG, name, INV, size_qual)
+        # _save(ctx, invert_image(orig_inv_resized), ORIG, name, size_qual)
 
     if add_enhanced:
         created = list(images.keys())
         for qual in created:
             if INV in qual:
-                i_e = _enhance_inv(images[qual], ENH_STRENGTH, enhance_mask)
+                i_e = _enhance_inv(images[qual], enh_extra, enhance_mask)
             else:
-                i_e = _enhance_pos(images[qual], ENH_STRENGTH, enhance_mask)
+                i_e = _enhance_pos(images[qual], enh_extra, enhance_mask)
             new_qual = qual + (ENH,)
             add(i_e, *new_qual)
 
@@ -437,7 +448,7 @@ def process(img: Union[str, ImageT],
                            meta=cfg,
                            exif_desc='')
 
-    _save(save_ctx, src, 'orig')
+    _save(save_ctx, src, ORIG)
 
     x_offset, y_offset = parse_offset(cut_offset, src.size)
 

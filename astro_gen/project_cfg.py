@@ -45,6 +45,18 @@ def enhance_mask(cfg: Optional[Dict]) -> str:
     return _image_cfg(cfg).get('enhance_mask', '')
 
 
+def default_enhance(cfg: Optional[Dict]) -> float:
+    return _image_cfg(cfg).get('default_enhance', 0.3)
+
+
+def extra_enhance(cfg: Optional[Dict]) -> float:
+    return _image_cfg(cfg).get('extra_enhance', 0.3)
+
+
+def default_gate(cfg: Optional[Dict]) -> float:
+    return _image_cfg(cfg).get('default_gate', 0.0)
+
+
 def mid_width(cfg: Optional[Dict]) -> int:
     return _image_cfg(cfg).get('mid_width', 800)
 

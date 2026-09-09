@@ -428,7 +428,7 @@ def test_apply_keeps_the_color_balance_on_clipping():
     img = image_of([(250, 200, 180)])
     res = image_curves.apply(img, Curves.highlights(1.0))
     # R clips, so the pixel is desaturated instead of shifting its hue
-    assert list(res.getdata()) == [(255, 237, 230)]
+    assert list(res.getdata()) == [(255, 220, 206)]
 
 
 def test_apply_keeps_the_input_image():

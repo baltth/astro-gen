@@ -44,31 +44,46 @@ class Curves:
         return lambda x: x
 
     @staticmethod
-    def highlights(strength: float) -> CurveFunc:
-        assert -1.0 <= strength <= 1.0
+    def brightness(strength: float) -> CurveFunc:
 
         SCALE = 0.2
 
-        def neg_fn(x: float):
-            TSH = 0.45
-            assert strength < 0
-            assert 0 <= x <= 1.0
-            if x > TSH:
-                val = x + (SCALE * (x - TSH) * strength * Curves._wide_mask(x-TSH))
-                return min(val, 1.0)
-            return x
-
-        def pos_fn(x: float):
-            assert strength >= 0
+        def _fn(x: float):
             assert 0 <= x <= 1.0
             val = x + (SCALE * x * strength * Curves._wide_mask(x))
-            return min(val, 1.0)
+            return _clamp(0, val, 1.0)
 
-        return pos_fn if strength >= 0 else neg_fn
+        return _fn
+
+    @staticmethod
+    def darkness(strength: float) -> CurveFunc:
+
+        SCALE = 0.2
+
+        def _fn(x: float):
+            assert 0 <= x <= 1.0
+            val = x + (SCALE * (1 - x) * -strength * Curves._wide_mask(x))
+            return _clamp(0, val, 1.0)
+
+        return _fn
+
+    @staticmethod
+    def highlights(strength: float) -> CurveFunc:
+
+        SCALE = 0.2
+        TSH = 0.45
+
+        def _fn(x: float) -> float:
+            assert 0 <= x <= 1.0
+            if x <= TSH:
+                return x
+            val = x + (SCALE * (x - TSH) * strength * Curves._wide_mask((x - TSH) / (1 - TSH)))
+            return max(val, 0)
+
+        return _fn
 
     @staticmethod
     def ambient(strength: float) -> CurveFunc:
-        assert -1.0 <= strength <= 1.0
 
         def _fn(x: float) -> float:
             assert 0 <= x <= 1.0
@@ -78,7 +93,6 @@ class Curves:
 
     @staticmethod
     def shadows(strength: float) -> CurveFunc:
-        assert -1.0 <= strength <= 1.0
 
         SCALE = 0.2
         TSH = 0.5
@@ -89,6 +103,22 @@ class Curves:
                 return x
             val = x + (SCALE * (TSH - x) * strength * Curves._mid_mask(x / TSH))
             return max(val, 0)
+
+        return _fn
+
+    @staticmethod
+    def gate(level: float) -> CurveFunc:
+        assert 0.0 <= level <= 50
+        level_norm = level / CURVE_LEN
+        SCALE = 2
+
+        def _ramp(x: float) -> float:
+            return (SCALE * x) - (SCALE - 1) * level_norm
+
+        def _fn(x: float) -> float:
+            if x >= level_norm:
+                return x
+            return _clamp(0, _ramp(x), level_norm)
 
         return _fn
 
@@ -321,7 +351,15 @@ def adjust(*, sh: float = 0, amb: float = 0, hl: float = 0) -> Curve:
 
 def enhance_inv(strength: float) -> Curve:
     assert 0.0 <= strength <= 1.0
-    return adjust(sh=strength, amb=strength, hl=0.5*strength)
+    return Curves.combine(Curves.brightness(strength*1.8),
+                          Curves.shadows(strength*0.5),
+                          Curves.ambient(strength))
+
+
+def enhance_pos(strength: float) -> Curve:
+    assert 0.0 <= strength <= 1.0
+    return Curves.combine(Curves.darkness(strength*2),
+                          Curves.ambient(strength))
 
 
 def _annotate_image(image: ImageT, curve: Optional[Curve] = None) -> ImageT:
@@ -402,11 +440,18 @@ def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Option
             name_postfix = f'{i}{s:+1.2f}'
             _annot_and_save(img_amb, c, f'{name}.{name_postfix}')
 
+    series(Curves.brightness, 'brightness', (-1, 0.2, 1))
+    series(Curves.darkness, 'darkness', (-1, 0.2, 1))
     series(Curves.ambient, 'ambient', (-1, 0.2, 1))
     series(Curves.highlights, 'highlights', (-1, 0.2, 1))
     series(Curves.shadows, 'shadows', (-1, 0.2, 1))
+    series(Curves.gate, 'gate', (0, 4, 24))
 
     series(enhance_inv, 'enh', (0, 0.1, 0.7))
+    series(enhance_pos, 'enh_p', (0, 0.1, 0.7))
+
+    def eg(x): return Curves.combine(Curves.gate(12), enhance_inv(x))
+    series(eg, 'gate-enh', (0, 0.1, 0.7))
 
     # def enhance_matrix(a_rng: Tuple[float, float, float], h_rng: Tuple[float, float, float]):
     #
