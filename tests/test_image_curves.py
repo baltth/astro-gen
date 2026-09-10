@@ -182,10 +182,10 @@ def test_curves_ambient_input_is_limited():
 def test_curves_mask():
 
     # the mask fades out the adjustment at both ends
-    assert Curves._mask(0.0) == pytest.approx(0.0, abs=1e-6)
-    assert Curves._mask(1.0) == pytest.approx(0.0, abs=1e-6)
-    assert Curves._mask(0.5) == pytest.approx(1.0)
-    assert Curves._mask(0.25) == pytest.approx(Curves._mask(0.75))
+    assert Curves._wide_mask(0.0) == pytest.approx(0.0, abs=1e-6)
+    assert Curves._wide_mask(1.0) == pytest.approx(0.0, abs=1e-6)
+    assert Curves._wide_mask(0.5) == pytest.approx(1.0)
+    assert Curves._wide_mask(0.25) == pytest.approx(Curves._wide_mask(0.75))
 
 
 # Curves._tight_mask()
@@ -197,7 +197,7 @@ def test_curves_tight_mask():
     assert Curves._tight_mask(0.5) == pytest.approx(1.0)
     assert Curves._tight_mask(0.25) == pytest.approx(Curves._tight_mask(0.75))
     # it is narrower than _mask()
-    assert Curves._tight_mask(0.25) < Curves._mask(0.25)
+    assert Curves._tight_mask(0.25) < Curves._wide_mask(0.25)
 
 
 # Curves.combine()
@@ -409,8 +409,8 @@ def test_apply_keeps_the_color_balance():
     img = image_of([(60, 70, 100), (120, 130, 160)])
     res = image_curves.apply(img, Curves.shadows(1.0))
     # the ratios of the shadow pixel are kept, a per channel mapping
-    # would flatten it to (85, 95, 110)
-    assert list(res.getdata()) == [(81, 95, 136), (120, 130, 160)]
+    # would flatten it to (74, 81, 104)
+    assert list(res.getdata()) == [(69, 81, 116), (120, 130, 160)]
 
 
 def test_apply_fades_the_gain_in_the_deepest_shadows():
@@ -552,13 +552,13 @@ def test_apply_with_a_mask_blends_before_quantization():
     img = image_of([(60, 70, 100)])
     curve = Curves.shadows(1.0)
 
-    assert list(image_curves.apply(img, curve).getdata()) == [(81, 95, 136)]
+    assert list(image_curves.apply(img, curve).getdata()) == [(69, 81, 116)]
 
     res = image_curves.apply(img, curve, mask=np.array([[0.5]]))
-    # the unrounded green of the full adjustment is 94.99, so the half
-    # strength one is 82.49 -> 82, and not the 83 which a blending of
+    # the unrounded green of the full adjustment is 80.99, so the half
+    # strength one is 75.49 -> 75, and not the 76 which a blending of
     # the quantized images would give
-    assert list(res.getdata()) == [(71, 82, 118)]
+    assert list(res.getdata()) == [(65, 75, 108)]
 
 
 def test_apply_with_a_black_mask_keeps_the_image():

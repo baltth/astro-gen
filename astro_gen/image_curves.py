@@ -3,11 +3,10 @@
 from argparse import ArgumentParser
 from typing import Tuple, List, Callable, Optional, Union
 from math import sin, sqrt, floor, pi
-import numpy as np
-from natsort import natsorted
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import numpy as np
 from PIL import Image, ImageChops, ImageDraw
 from PIL.Image import Image as ImageT
 
@@ -55,14 +54,14 @@ class Curves:
             assert strength < 0
             assert 0 <= x <= 1.0
             if x > TSH:
-                val = x + (SCALE * (x - TSH) * strength * Curves._mask(x-TSH))
+                val = x + (SCALE * (x - TSH) * strength * Curves._wide_mask(x-TSH))
                 return min(val, 1.0)
             return x
 
         def pos_fn(x: float):
             assert strength >= 0
             assert 0 <= x <= 1.0
-            val = x + (SCALE * x * strength * Curves._mask(x))
+            val = x + (SCALE * x * strength * Curves._wide_mask(x))
             return min(val, 1.0)
 
         return pos_fn if strength >= 0 else neg_fn
@@ -74,7 +73,7 @@ class Curves:
         def _fn(x: float) -> float:
             assert 0 <= x <= 1.0
             mod = sin(x * 2 * pi)
-            return x + (0.15 * mod * strength * Curves._mask(x))
+            return x + (0.15 * mod * strength * Curves._tight_mask(x))
         return _fn
 
     @staticmethod
@@ -88,16 +87,18 @@ class Curves:
             assert 0 <= x <= 1.0
             if x >= TSH:
                 return x
-            # A tight mask over [0, TSH] keeps the black point in place,
-            # the effect peaks in the middle of the shadows.
-            val = x + (SCALE * TSH * strength * Curves._tight_mask(x / TSH))
+            val = x + (SCALE * (TSH - x) * strength * Curves._mid_mask(x / TSH))
             return max(val, 0)
 
         return _fn
 
     @staticmethod
-    def _mask(x: float) -> float:
+    def _wide_mask(x: float) -> float:
         return sqrt(sin(x * pi))
+
+    @staticmethod
+    def _mid_mask(x: float) -> float:
+        return sin(x * pi)
 
     @staticmethod
     def _tight_mask(x: float) -> float:
@@ -314,7 +315,16 @@ def invert_image(image: ImageT) -> ImageT:
     return apply(image=image, curve=INVERT_CURVE, per_channel=True)
 
 
-def annotate_image(image: ImageT, curve: Optional[Curve] = None) -> ImageT:
+def adjust(*, sh: float = 0, amb: float = 0, hl: float = 0) -> Curve:
+    return Curves.combine(Curves.shadows(sh), Curves.ambient(amb), Curves.highlights(hl))
+
+
+def enhance_inv(strength: float) -> Curve:
+    assert 0.0 <= strength <= 1.0
+    return adjust(sh=strength, amb=strength, hl=0.5*strength)
+
+
+def _annotate_image(image: ImageT, curve: Optional[Curve] = None) -> ImageT:
 
     lw = min(image.size)
     hist = image.convert(mode='L').histogram()
@@ -369,10 +379,13 @@ def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Option
         tmp_dir = TemporaryDirectory(delete=False)
         out_path = Path(tmp_dir.name)
 
+    print(f'Out directory: {out_path.resolve()}')
+
     def _annot_and_save(img, curve, name):
-        img = annotate_image(image=img, curve=curve)
+        img = _annotate_image(image=img, curve=curve)
         out_file = out_path / f'{name}.jpg'
-        img.save(out_path / out_file, quality=95)
+        print(f'  {out_file}')
+        img.save(out_file, quality=95)
 
     _annot_and_save(image, Curves.linear(), 'base')
 
@@ -393,9 +406,20 @@ def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Option
     series(Curves.highlights, 'highlights', (-1, 0.2, 1))
     series(Curves.shadows, 'shadows', (-1, 0.2, 1))
 
-    print(f'Out directory: {out_path.resolve()}')
-    for f in natsorted(out_path.glob(pattern='*.jpg')):
-        print(f'    {f.name}')
+    series(enhance_inv, 'enh', (0, 0.1, 0.7))
+
+    # def enhance_matrix(a_rng: Tuple[float, float, float], h_rng: Tuple[float, float, float]):
+    #
+    #    a_start, a_step, a_end = a_rng
+    #    a_series = np.arange(a_start, a_end+a_step, a_step, dtype=float)
+    #    a_series = [round(a, 2) for a in a_series]
+    #
+    #    for i, a in enumerate(a_series):
+    #        def ec(h, amb = a):
+    #            return Curves.combine(Curves.ambient(amb), Curves.highlights(h))
+    #        series(ec, f'enh_m.{i}{a:+1.2f}', h_rng)
+    #
+    # enhance_matrix((0, 0.1, 0.5), (0, 0.1, 0.5))
 
 
 if __name__ == "__main__":

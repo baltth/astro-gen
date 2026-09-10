@@ -17,7 +17,7 @@ DEFAULT_CUTOUTS = ['100%x100%']
 
 # The images proc_image.process() creates in the work folder.
 
-PROCESSED_IMAGES = ['orig.jpg', 'full.jpg',
+PROCESSED_IMAGES = ['orig.jpg', 'full.jpg', 'full-inv.jpg',
                     'c1-mid.jpg', 'c1-inv-mid.jpg',
                     'c2-mid.jpg', 'c2-inv-mid.jpg']
 
@@ -174,7 +174,7 @@ def test_add_images_with_meta_file(project_root, meta_file, work_dir, proc_mock,
 def test_add_images_full_page(project_root, work_dir, proc_mock, date_mock):
     """A full page sketch is not cut into pieces."""
 
-    proc_mock.side_effect = processed('orig.jpg', 'full.jpg')
+    proc_mock.side_effect = processed('orig.jpg', 'full.jpg', 'full-inv.jpg')
 
     data = add._add_images(project_root=project_root,
                            img='./orig/cluster.jpg',
@@ -264,8 +264,8 @@ def test_copy_to_project(project_root, work_path):
     assert content_of(scan) == 'the orig.jpg'
 
     img_dir = Path(project_root, 'docs', 'img', '2026')
-    assert content_of(img_dir / 'c47-alpha-umi-20260816.jpg') == 'the full.jpg'
     # the negatives are used by default
+    assert content_of(img_dir / 'c47-alpha-umi-20260816.jpg') == 'the full-inv.jpg'
     assert content_of(img_dir / 'c47-20260816.jpg') == 'the c1-inv-mid.jpg'
     assert content_of(img_dir / 'alpha-umi-20260816.jpg') == 'the c2-inv-mid.jpg'
 
