@@ -16,7 +16,7 @@ sketches:
       - 2026/c47-20260816.jpg
       - 2026/alpha-umi-20260816.jpg
     _cmd:
-      - ./script/astro_gen.py ./example add -i ./example/orig/cluster_double_star.jpg -f 65,170 -o1 C47 -o2 'Alpha UMi'
+      - astro-gen ./example add -i ./example/orig/cluster_double_star.jpg -f 65,170 -o1 C47 -o2 'Alpha UMi'
 
   - full: 2026/c-2025-r3-alpha-umi-20260816.jpg
     scan: 2026/comet_double_star.jpg
@@ -34,7 +34,7 @@ sketches:
       - 2026/gassendi-20260816.jpg
       - 2026/archimedes-20260816.jpg
     _cmd:
-      - ./script/astro_gen.py ./example add -i ./example/orig/craters.jpg -f 65,170 -o1 Gassendi -o2 Archimedes --simple --positive
+      - astro-gen ./example add -i ./example/orig/craters.jpg -f 65,170 -o1 Gassendi -o2 Archimedes --simple --positive
 
   - full: 2026/m31-saturn-20260816.jpg
     scan: 2026/galaxy_planet.jpg
@@ -42,4 +42,4 @@ sketches:
       - 2026/m31-20260816.jpg
       - 2026/saturn-20260816.jpg
     _cmd:
-      - ./script/astro_gen.py ./example add -i ./example/orig/galaxy_planet.jpg -f 65,170 -o1 M31 -o2 Saturn
+      - astro-gen ./example add -i ./example/orig/galaxy_planet.jpg -f 65,170 -o1 M31 -o2 Saturn
