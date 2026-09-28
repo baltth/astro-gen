@@ -5,6 +5,7 @@ from typing import Tuple, List, Callable, Optional, Union
 from math import sin, sqrt, floor, pi
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import json
 
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw
@@ -228,6 +229,11 @@ def _image_of(levels: np.ndarray) -> ImageT:
     return Image.fromarray(np.clip(levels + 0.5, 0, MAX_LEVEL).astype(np.uint8))
 
 
+def _luminance(rgb: np.ndarray) -> np.ndarray:
+    """The Rec. 709 luminance of an array of RGB levels."""
+    return rgb @ np.asarray(LUMA_WEIGHTS, dtype=np.float32)
+
+
 def _apply_to_luminance(rgb: np.ndarray, lut: LookupTable) -> np.ndarray:
     """
     Apply the lookup table to the luminance of each pixel and scale
@@ -235,7 +241,7 @@ def _apply_to_luminance(rgb: np.ndarray, lut: LookupTable) -> np.ndarray:
     thus the color balance, which an independent per-channel mapping
     would distort wherever the curve is steep, flat, or clipping.
     """
-    lum = rgb @ np.asarray(LUMA_WEIGHTS, dtype=np.float32)
+    lum = _luminance(rgb)
     target = np.interp(lum,
                        np.arange(CURVE_LEN, dtype=np.float32),
                        np.asarray(lut, dtype=np.float32)).astype(np.float32)
@@ -401,6 +407,19 @@ def gradient_image() -> ImageT:
     return image.convert(mode='RGB')
 
 
+def _resolve_out_dir(out_dir: Optional[str] = None) -> Path:
+    """The output directory to save into, creating it if given, else a temp dir."""
+    if out_dir:
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+    else:
+        tmp_dir = TemporaryDirectory(delete=False)
+        out_path = Path(tmp_dir.name)
+
+    print(f'Out directory: {out_path.resolve()}')
+    return out_path
+
+
 def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Optional[str] = None):
 
     if not inp:
@@ -410,21 +429,18 @@ def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Option
     else:
         image = Image.open(inp)
 
-    if out_dir:
-        out_path = Path(out_dir)
-        out_path.mkdir(parents=True, exist_ok=True)
-    else:
-        tmp_dir = TemporaryDirectory(delete=False)
-        out_path = Path(tmp_dir.name)
+    out_path = _resolve_out_dir(out_dir)
 
-    print(f'Out directory: {out_path.resolve()}')
-
-    def _annot_and_save(img, curve, name):
-        img = _annotate_image(image=img, curve=curve)
+    def _save(img, name):
         out_file = out_path / f'{name}.jpg'
         print(f'  {out_file}')
         img.save(out_file, quality=95)
 
+    def _annot_and_save(img, curve, name):
+        img = _annotate_image(image=img, curve=curve)
+        _save(img, name)
+
+    _save(image, 'orig')
     _annot_and_save(image, Curves.linear(), 'base')
 
     img_inv = apply(image, INVERT_CURVE, per_channel=True)
@@ -467,11 +483,85 @@ def gen_curve_test_set(inp: Optional[Union[ImageT, str]] = None, out_dir: Option
     # enhance_matrix((0, 0.1, 0.5), (0, 0.1, 0.5))
 
 
+def _extract_curve(orig: ImageT, processed: ImageT) -> LookupTable:
+    """
+    Derive the curve lookup table that maps the luminance of `orig`
+    to the luminance of `processed`, the inverse of what apply()
+    does via _apply_to_luminance(). Pixels are grouped by their
+    rounded luminance level in `orig`, and the mean luminance of the
+    matching pixels in `processed` becomes that level's LUT entry.
+    Levels with no matching pixels are filled in by interpolating
+    between the neighboring known levels.
+    """
+    if orig.size != processed.size:
+        raise ValueError(f'Images of {orig.size} and {processed.size}')
+
+    orig_lum = _luminance(_levels_of(orig.convert(mode='RGB')))
+    proc_lum = _luminance(_levels_of(processed.convert(mode='RGB')))
+
+    levels = np.clip(np.round(orig_lum), 0, MAX_LEVEL).astype(np.int64).ravel()
+    proc_lum = proc_lum.ravel()
+
+    sums = np.bincount(levels, weights=proc_lum, minlength=CURVE_LEN)
+    counts = np.bincount(levels, minlength=CURVE_LEN)
+    known = counts > 0
+    if not known.any():
+        raise ValueError('No pixels to derive a curve from')
+
+    lut = np.zeros(CURVE_LEN, dtype=np.float32)
+    lut[known] = sums[known] / counts[known]
+
+    xs = np.arange(CURVE_LEN)
+    lut = np.interp(xs, xs[known], lut[known])
+
+    return [float(v) for v in np.clip(lut, 0, MAX_LEVEL)]
+
+
+def get_curve_from_images(orig: Union[ImageT, str],
+                          processed: Union[ImageT, str],
+                          out_dir: Optional[str] = None) -> LookupTable:
+    """
+    Derive the curve LUT mapping `orig` to `processed`, see
+    extract_curve(), and save it to `out_dir` (a temp dir by
+    default) as a single annotated image and a JSON file of the
+    raw LUT array. Returns the LUT.
+    """
+    if isinstance(orig, str):
+        orig = Image.open(orig)
+    if isinstance(processed, str):
+        processed = Image.open(processed)
+
+    lut = _extract_curve(orig, processed)
+
+    out_path = _resolve_out_dir(out_dir)
+
+    curve_xy = list(zip(range(CURVE_LEN), lut))
+    img = _annotate_image(processed, curve_xy)
+    img_file = out_path / 'curve.jpg'
+    print(f'  {img_file}')
+    img.save(img_file, quality=95)
+
+    json_file = out_path / 'curve.json'
+    print(f'  {json_file}')
+    with open(json_file, 'w', encoding='utf8') as f:
+        json.dump(lut, f)
+
+    return lut
+
+
 if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument('-i', '--input', help='Input image, default is a generated gradient')
     parser.add_argument('-o', '--out-dir', help='Output directory, default is a temp dir')
+    parser.add_argument('--get-curve', metavar='PROCESSED',
+                        help='Derive the curve LUT mapping --input (the original) to this '
+                             'processed image, instead of generating a test set')
     args = parser.parse_args()
 
-    gen_curve_test_set(inp=args.input, out_dir=args.out_dir)
+    if args.get_curve:
+        if not args.input:
+            parser.error('--get-curve needs --input to be set to the original image')
+        get_curve_from_images(orig=args.input, processed=args.get_curve, out_dir=args.out_dir)
+    else:
+        gen_curve_test_set(inp=args.input, out_dir=args.out_dir)
