@@ -4,3 +4,15 @@ author: John Doe
 email: john.doe@example.com
 image_note: YEAR - John Doe's fantastic sketches - johndoesfantasticsketches.com
 default_location: Kerguelen Islands
+
+images:
+  cutouts:
+    - 100%x60%
+    - 100%x57%+0+43%
+  enhance_mask: static/mask.png
+  default_enhance: 0.3
+  extra_enhance: 0.3
+  default_gate: 30
+  mid_width: 800
+  small_width: 200
+  jpg_quality: 95

@@ -2,7 +2,7 @@
 
 from astro_gen import common
 from astro_gen.datatypes import Object
-
+from slugify import slugify
 
 # to_greek()
 
@@ -183,6 +183,7 @@ def test_name_slug():
 
     assert common.name_slug('Alpha UMi') == 'alpha-umi'
     assert common.name_slug('C47') == 'c47'
+    assert common.name_slug(['C15', '16 Cyg']) == 'c15-16-cyg'
 
 
 def test_name_slug_list():
@@ -202,6 +203,8 @@ def test_file_basename():
     assert common.file_basename('C47', '2026-08-16') == 'c47-2026-08-16'
     assert common.file_basename(['C47', 'Alpha UMi'], '2026-08-16') == \
         'c47-alpha-umi-2026-08-16'
+    assert common.file_basename(['C15', '16 Cyg'], '2026-08-16') == \
+        'c15-16-cyg-2026-08-16'
 
 
 def test_file_basename_with_time():

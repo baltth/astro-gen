@@ -30,7 +30,8 @@ def raw_data(obs_db: List[ObsData], object_db: Dict[str, Object]) -> List:
 def get_type(obj: Object) -> str:
     type_split = obj.type.split()
 
-    if 'star' in type_split:
+    if 'star' in type_split \
+        or ('nova' in type_split and 'remnant' not in type_split) :
         return 'Stars'
     if obj.constellation == 'Moon' \
         or 'crater' in type_split:  # Yes, a 'crater' is assumed to be on Moon...

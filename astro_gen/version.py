@@ -2,8 +2,6 @@
 
 import subprocess
 
-APP_NAME = 'astro-gen'
-
 
 def git_describe_version() -> str:
 
@@ -24,5 +22,4 @@ def git_describe_version() -> str:
             return line.replace('-', '+', 1)
 
     except Exception:
-
         return "0.0"
